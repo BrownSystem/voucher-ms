@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VoucherType {
+  FACTURA
+  REMITO
+  NOTA_CREDITO
+  P
+}
+
+enum ConditionPayment {
+  CASH
+  CREDIT
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  DOLAR
+  CHEQUE
+  TRANSFERENCIA
+  TARJETA
+}
+
+enum VoucherStatus {
+  PENDIENTE
+  PAGADO
+  CANCELADO
+  ENTREGADO
+  RESERVADO
+}
+
+enum Currency {
+  ARS
+  USD
+  EUR
+}
+
+model EVoucher {
+  id                   String           @id @default(uuid())
+  number               String           @unique
+  letter               String?          
+  type                 VoucherType
+  emissionDate         DateTime         @default(now())
+  dueDate              DateTime?
+  emissionBranchId     String?
+  emissionBranchName   String?
+  destinationBranchId  String?
+  status               VoucherStatus    @default(PENDIENTE)
+
+  contactId            String
+  contactName          String
+
+  products             EVoucherProduct[]
+
+  conditionPayment     ConditionPayment?
+
+  totalAmount          Float?
+  paidAmount           Float            @default(0)
+
+  observation          String?
+
+  available            Boolean          @default(true)
+
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  createdBy            String?
+  updatedBy            String?
+
+  Payments             EPayment[]       @relation("VoucherPayments")
+
+  @@index([type, emissionDate]) // útil para reportes o filtros por tipo y fecha
+  @@index([contactId, status])  // útil para ver vouchers de un cliente y su estado
+}
+
+model EVoucherProduct {
+  id         String   @id @default(uuid())
+
+  voucherId  String
+  voucher    EVoucher @relation(fields: [voucherId], references: [id])
+
+  productId  String   // ID referenciado del producto (de otro microservicio)
+  quantity   Int
+
+  @@index([voucherId, productId]) // si hacés búsquedas por ambos juntos
+}
+
+model EBank {
+  id          String       @id @default(uuid())
+  name        String
+  branch      String?
+  account     String?      // Número de cuenta
+  cbu         String?      // CBU (Argentina)
+  alias       String?      // Alias CBU
+  currency    Currency     // Moneda de la cuenta
+  isActive    Boolean      @default(true)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  payments    EPayment[]   @relation("BankPayments")
+
+  @@index([name, currency])
+}
+
+model EPayment {
+  id          String         @id @default(uuid())
+  voucherId   String
+  voucher     EVoucher       @relation("VoucherPayments", fields: [voucherId], references: [id])
+
+  method      PaymentMethod
+  amount      Float
+  currency    Currency
+  receivedAt  DateTime       @default(now())
+  receivedBy  String?
+
+  
+  bankId      String?
+  bank        EBank?         @relation("BankPayments", fields: [bankId], references: [id])
+
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([voucherId, method])
+  @@index([receivedAt]) // útil para consultas por fecha de pagos
+}
