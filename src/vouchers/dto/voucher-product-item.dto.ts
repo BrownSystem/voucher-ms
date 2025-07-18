@@ -1,13 +1,19 @@
 import { IsNumber, IsPositive, IsString } from "class-validator";
 
 export class VoucherProductItemDto {
-    @IsString()
-    voucherId: string;
+  @IsString()
+  productId: string;
 
-    @IsString()
-    productId: string;
+  @IsString()
+  description: string;
 
-    @IsNumber()
-    @IsPositive()
-    quantity: number;
+  @IsString()
+  branchId: string;
+
+  @IsNumber()
+  @IsPositive()
+  quantity: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  price: number;
 }

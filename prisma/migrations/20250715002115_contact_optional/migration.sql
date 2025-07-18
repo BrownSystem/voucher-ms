@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "EVoucher" ALTER COLUMN "contactId" DROP NOT NULL,
+ALTER COLUMN "contactName" DROP NOT NULL;

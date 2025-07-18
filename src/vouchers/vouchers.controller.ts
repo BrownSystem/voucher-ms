@@ -1,35 +1,26 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import { VouchersService } from './vouchers.service';
-import { CreateVoucherDto } from './dto/create-voucher.dto';
-import { UpdateVoucherDto } from './dto/update-voucher.dto';
+import { Controller } from "@nestjs/common";
+import { MessagePattern, Payload } from "@nestjs/microservices";
+import { VouchersService } from "./vouchers.service";
+import { CreateVoucherDto } from "./dto/create-voucher.dto";
+import { PaginationDto } from "./dto/pagination.dto";
+import { CreatePaymentDto } from "./dto/create-payment.dto";
 
 @Controller()
 export class VouchersController {
   constructor(private readonly vouchersService: VouchersService) {}
 
-  @MessagePattern('createVoucher')
+  @MessagePattern({ cmd: "create_voucher" })
   create(@Payload() createVoucherDto: CreateVoucherDto) {
     return this.vouchersService.create(createVoucherDto);
   }
 
-  @MessagePattern('findAllVouchers')
-  findAll() {
-    return this.vouchersService.findAll();
+  @MessagePattern({ cmd: "find_all_vouchers_condition_payment" })
+  findAllConditionPayment(@Payload() pagination: PaginationDto) {
+    return this.vouchersService.findAllConditionPayment(pagination);
   }
 
-  @MessagePattern('findOneVoucher')
-  findOne(@Payload() id: number) {
-    return this.vouchersService.findOne(id);
-  }
-
-  @MessagePattern('updateVoucher')
-  update(@Payload() updateVoucherDto: UpdateVoucherDto) {
-    return this.vouchersService.update(updateVoucherDto.id, updateVoucherDto);
-  }
-
-  @MessagePattern('removeVoucher')
-  remove(@Payload() id: number) {
-    return this.vouchersService.remove(id);
+  @MessagePattern({ cmd: "register_payment" })
+  registerPayment(@Payload() createPaymentDto: CreatePaymentDto) {
+    return this.vouchersService.registerPayment(createPaymentDto);
   }
 }

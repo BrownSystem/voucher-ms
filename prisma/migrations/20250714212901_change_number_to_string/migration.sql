@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "EVoucher" ALTER COLUMN "number" SET DATA TYPE TEXT;

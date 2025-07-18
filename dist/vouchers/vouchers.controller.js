@@ -17,7 +17,8 @@ const common_1 = require("@nestjs/common");
 const microservices_1 = require("@nestjs/microservices");
 const vouchers_service_1 = require("./vouchers.service");
 const create_voucher_dto_1 = require("./dto/create-voucher.dto");
-const update_voucher_dto_1 = require("./dto/update-voucher.dto");
+const pagination_dto_1 = require("./dto/pagination.dto");
+const create_payment_dto_1 = require("./dto/create-payment.dto");
 let VouchersController = class VouchersController {
     vouchersService;
     constructor(vouchersService) {
@@ -26,54 +27,35 @@ let VouchersController = class VouchersController {
     create(createVoucherDto) {
         return this.vouchersService.create(createVoucherDto);
     }
-    findAll() {
-        return this.vouchersService.findAll();
+    findAllConditionPayment(pagination) {
+        return this.vouchersService.findAllConditionPayment(pagination);
     }
-    findOne(id) {
-        return this.vouchersService.findOne(id);
-    }
-    update(updateVoucherDto) {
-        return this.vouchersService.update(updateVoucherDto.id, updateVoucherDto);
-    }
-    remove(id) {
-        return this.vouchersService.remove(id);
+    registerPayment(createPaymentDto) {
+        return this.vouchersService.registerPayment(createPaymentDto);
     }
 };
 exports.VouchersController = VouchersController;
 __decorate([
-    (0, microservices_1.MessagePattern)('createVoucher'),
+    (0, microservices_1.MessagePattern)({ cmd: "create_voucher" }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_voucher_dto_1.CreateVoucherDto]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "create", null);
 __decorate([
-    (0, microservices_1.MessagePattern)('findAllVouchers'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], VouchersController.prototype, "findAll", null);
-__decorate([
-    (0, microservices_1.MessagePattern)('findOneVoucher'),
+    (0, microservices_1.MessagePattern)({ cmd: "find_all_vouchers_condition_payment" }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", void 0)
-], VouchersController.prototype, "findOne", null);
+], VouchersController.prototype, "findAllConditionPayment", null);
 __decorate([
-    (0, microservices_1.MessagePattern)('updateVoucher'),
+    (0, microservices_1.MessagePattern)({ cmd: "register_payment" }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [update_voucher_dto_1.UpdateVoucherDto]),
+    __metadata("design:paramtypes", [create_payment_dto_1.CreatePaymentDto]),
     __metadata("design:returntype", void 0)
-], VouchersController.prototype, "update", null);
-__decorate([
-    (0, microservices_1.MessagePattern)('removeVoucher'),
-    __param(0, (0, microservices_1.Payload)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
-    __metadata("design:returntype", void 0)
-], VouchersController.prototype, "remove", null);
+], VouchersController.prototype, "registerPayment", null);
 exports.VouchersController = VouchersController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [vouchers_service_1.VouchersService])

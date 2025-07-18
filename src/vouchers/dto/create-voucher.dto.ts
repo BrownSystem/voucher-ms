@@ -1,77 +1,115 @@
-import { ConditionPayment, VoucherStatus, VoucherType } from "@prisma/client";
+import {
+  ConditionPayment,
+  Currency,
+  VoucherStatus,
+  VoucherType,
+} from "@prisma/client";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsBoolean, IsDate, IsEnum, IsNumber, IsOptional, IsPositive, IsString, ValidateNested } from "class-validator";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsDate,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateIf,
+  ValidateNested,
+} from "class-validator";
 import { VoucherProductItemDto } from "./voucher-product-item.dto";
+import { CreateInitialPaymentDto } from "./initial-payment.dto";
 
 export class CreateVoucherDto {
-    @IsNumber()
-    @IsPositive()
-    number: number;
+  @ValidateIf((o) => o.type !== "REMITO")
+  @IsString()
+  @IsOptional()
+  number: string;
 
-    @IsString()
-    @IsOptional()
-    letter?: string;
+  @IsString()
+  @IsOptional()
+  letter?: string;
 
-    @IsEnum(VoucherType)
-    type: VoucherType
+  @IsEnum(VoucherType)
+  type: VoucherType;
 
-    @IsDate()
-    @Type(() => Date)
-    emissionDate: Date;
+  @IsDate()
+  @Type(() => Date)
+  emissionDate: Date;
 
-    @IsDate()
-    @Type(() => Date )
-    @IsOptional()
-    dueTime?: Date;
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  dueDate?: Date;
 
-    @IsString()
-    @IsOptional()
-    emissionBranchId?: string;
+  @ValidateIf((o) => o.type === "REMITO")
+  @IsString()
+  emissionBranchId: string;
 
-    @IsString()
-    @IsOptional()
-    emissionBranchName?: string;
-    
-    @IsString()
-    @IsOptional()
-    destinationBranchId?: string;
+  @ValidateIf((o) => o.type === "REMITO")
+  @IsString()
+  emissionBranchName: string;
 
-    @IsEnum(VoucherStatus)
-    status: VoucherStatus;
+  @ValidateIf((o) => o.type === "REMITO")
+  @IsString()
+  destinationBranchId: string;
 
-    @IsString()
-    contactId: string;
+  @IsString()
+  @IsOptional()
+  contactId?: string;
 
-    @IsString()
-    contactName: string;
+  @IsString()
+  @IsOptional()
+  contactName?: string;
 
-    @IsArray()
-    @ArrayMinSize(1)
-    @ValidateNested({ each: true })
-    @Type(() => VoucherProductItemDto)
-    products: VoucherProductItemDto[]
+  @IsEnum(ConditionPayment)
+  @IsOptional()
+  conditionPayment?: ConditionPayment;
 
-    @IsEnum(ConditionPayment)
-    @IsOptional()
-    conditionPayment?: ConditionPayment;
+  @IsEnum(Currency)
+  currency: Currency;
 
-    @IsNumber({ maxDecimalPlaces: 2 })
-    @IsPositive()
-    @IsOptional()
-    totalAmount?: number;
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @IsOptional()
+  exchangeRate?: number;
 
-    @IsNumber({ maxDecimalPlaces: 2 })
-    @IsPositive()
-    @IsOptional()
-    paidAmount?: number;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => VoucherProductItemDto)
+  products: VoucherProductItemDto[];
 
-    @IsString()
-    @IsOptional()
-    observation?: string;
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsOptional()
+  totalAmount?: number;
 
-    @IsBoolean()
-    @IsOptional()
-    available?: boolean;
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsOptional()
+  paidAmount?: number;
 
-    
+  @IsString()
+  @IsOptional()
+  observation?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  available?: boolean;
+
+  @IsString()
+  @IsOptional()
+  createdBy?: string;
+
+  @IsString()
+  @IsOptional()
+  emittedBy?: string;
+
+  @IsString()
+  @IsOptional()
+  deliveredBy?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInitialPaymentDto)
+  initialPayment?: CreateInitialPaymentDto[]; // 👈 nuevo campo para registrar el primer pago
 }
