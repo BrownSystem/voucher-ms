@@ -6,9 +6,9 @@ export declare class BanksService extends PrismaClient implements OnModuleInit {
     private readonly logger;
     onModuleInit(): void;
     create(createBankDto: CreateBankDto): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
@@ -27,9 +27,9 @@ export declare class BanksService extends PrismaClient implements OnModuleInit {
         message: string;
     }>;
     findAll(): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
@@ -45,9 +45,9 @@ export declare class BanksService extends PrismaClient implements OnModuleInit {
         holderDoc: string | null;
     }[]>;
     findOne(id: string): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
@@ -66,9 +66,9 @@ export declare class BanksService extends PrismaClient implements OnModuleInit {
         message: string;
     } | null>;
     update(id: string, updateBankDto: UpdateBankDto): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;

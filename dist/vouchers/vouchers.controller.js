@@ -33,6 +33,12 @@ let VouchersController = class VouchersController {
     registerPayment(createPaymentDto) {
         return this.vouchersService.registerPayment(createPaymentDto);
     }
+    findAllReservedProductsByBranchId(pagination) {
+        return this.vouchersService.findAllReservedProductsByBranchId(pagination);
+    }
+    update({ id, data }) {
+        return this.vouchersService.updateReservedProduct(id, data);
+    }
 };
 exports.VouchersController = VouchersController;
 __decorate([
@@ -56,6 +62,20 @@ __decorate([
     __metadata("design:paramtypes", [create_payment_dto_1.CreatePaymentDto]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "registerPayment", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: "find_all_reserved_products" }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto]),
+    __metadata("design:returntype", void 0)
+], VouchersController.prototype, "findAllReservedProductsByBranchId", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: "update_reserved_product" }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], VouchersController.prototype, "update", null);
 exports.VouchersController = VouchersController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [vouchers_service_1.VouchersService])

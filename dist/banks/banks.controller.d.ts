@@ -5,9 +5,9 @@ export declare class BanksController {
     private readonly banksService;
     constructor(banksService: BanksService);
     create(createBankDto: CreateBankDto): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
@@ -26,9 +26,9 @@ export declare class BanksController {
         message: string;
     }>;
     findAll(): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
@@ -44,9 +44,9 @@ export declare class BanksController {
         holderDoc: string | null;
     }[]>;
     findOne(payload: any): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
@@ -65,9 +65,9 @@ export declare class BanksController {
         message: string;
     } | null>;
     update(updateBankDto: UpdateBankDto): Promise<{
+        id: string;
         currency: import(".prisma/client").$Enums.Currency;
         available: boolean;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;

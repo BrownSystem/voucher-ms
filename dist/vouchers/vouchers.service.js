@@ -5,13 +5,23 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var VouchersService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VouchersService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const enum_1 = require("../enum");
+const config_1 = require("../config");
+const microservices_1 = require("@nestjs/microservices");
+const rxjs_1 = require("rxjs");
 let VouchersService = VouchersService_1 = class VouchersService extends client_1.PrismaClient {
+    client;
     logger = new common_1.Logger(VouchersService_1.name);
     _normalizeText(text) {
         return text
@@ -22,6 +32,10 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     onModuleInit() {
         this.$connect();
         this.logger.log("Database connected successfully");
+    }
+    constructor(client) {
+        super();
+        this.client = client;
     }
     async create(createVoucherDto) {
         try {
@@ -34,22 +48,33 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
             }
             const enrichedProducts = products.map((p) => ({
                 productId: p.productId,
+                branchId: p.branchId,
+                isReserved: p.isReserved,
                 description: p.description,
                 quantity: p.quantity,
                 price: p.price,
                 subtotal: p.quantity * p.price,
             }));
+            if (createVoucherDto.type === "P") {
+                enrichedProducts.map(async (p) => {
+                    const discountBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                        branchId: p.branchId,
+                        productId: p.productId,
+                        stock: p.quantity,
+                    }));
+                });
+            }
             const totalAmount = enrichedProducts.reduce((sum, p) => sum + p.subtotal, 0);
-            const initialPaidTotal = Array.isArray(initialPayment)
-                ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
-                : 0;
-            const remainingAmount = totalAmount - paidAmount;
             if (totalAmount <= 0) {
                 return {
                     status: common_1.HttpStatus.BAD_REQUEST,
                     message: "[CREATE_VOUCHER] El total debe ser mayor a cero.",
                 };
             }
+            const initialPaidTotal = Array.isArray(initialPayment)
+                ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
+                : 0;
+            const remainingAmount = totalAmount - initialPaidTotal;
             let resolvedNumber = createVoucherDto.number;
             if (createVoucherDto.type === "REMITO") {
                 const lastRemito = await this.eVoucher.findMany({
@@ -64,6 +89,15 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 resolvedNumber = `R-${next.toString().padStart(5, "0")}`;
             }
             const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
+            const exists = await this.eVoucher.findUnique({
+                where: { number: resolvedNumber },
+            });
+            if (exists) {
+                return {
+                    status: common_1.HttpStatus.CONFLICT,
+                    message: `[CREATE_VOUCHER] Ya existe un comprobante con número ${resolvedNumber}`,
+                };
+            }
             const result = await this.$transaction(async (tx) => {
                 const voucher = await tx.eVoucher.create({
                     data: {
@@ -77,9 +111,14 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                         createdBy,
                         emittedBy,
                         deliveredBy,
-                        products: { create: enrichedProducts },
                     },
-                    include: { products: true },
+                });
+                const productsWithVoucherId = enrichedProducts.map((p) => ({
+                    ...p,
+                    voucherId: voucher.id,
+                }));
+                await tx.eVoucherProduct.createMany({
+                    data: productsWithVoucherId,
                 });
                 if (Array.isArray(initialPayment)) {
                     for (const payment of initialPayment) {
@@ -232,9 +271,100 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
             };
         }
     }
+    async findAllReservedProductsByBranchId(pagination) {
+        const { emissionBranchId, limit, offset, search } = pagination;
+        const whereClause = {
+            isReserved: true,
+            voucher: {
+                emissionBranchId,
+            },
+        };
+        if (search) {
+            whereClause.OR = [
+                {
+                    description: {
+                        contains: search,
+                        mode: "insensitive",
+                    },
+                },
+                {
+                    voucher: {
+                        contactName: {
+                            contains: search,
+                            mode: "insensitive",
+                        },
+                    },
+                },
+            ];
+        }
+        const [data, total] = await Promise.all([
+            this.eVoucherProduct.findMany({
+                where: whereClause,
+                skip: (offset - 1) * limit,
+                take: limit,
+                include: {
+                    voucher: {
+                        select: {
+                            products: true,
+                            id: true,
+                            number: true,
+                            contactId: true,
+                            contactName: true,
+                            conditionPayment: true,
+                            emissionBranchId: true,
+                            status: true,
+                            totalAmount: true,
+                            paidAmount: true,
+                            remainingAmount: true,
+                            emissionDate: true,
+                        },
+                    },
+                },
+            }),
+            this.eVoucherProduct.count({ where: whereClause }),
+        ]);
+        return {
+            data,
+            total,
+            page: offset,
+            lastPage: Math.ceil(total / limit),
+        };
+    }
+    async updateReservedProduct(id, data) {
+        try {
+            const { isReserved } = data;
+            const voucherProductsExists = await this.eVoucherProduct.update({
+                where: {
+                    id,
+                },
+                data: {
+                    isReserved,
+                },
+            });
+            if (!voucherProductsExists) {
+                return {
+                    status: common_1.HttpStatus.NOT_FOUND,
+                    message: `[UPDATE_RESERVED_PRODUCT] Producto reservado con ID ${id} no encontrado.`,
+                };
+            }
+            return {
+                status: common_1.HttpStatus.OK,
+                message: `[UPDATE_RESERVED_PRODUCT] Producto reservado actualizado correctamente.`,
+                data: voucherProductsExists,
+            };
+        }
+        catch (error) {
+            return {
+                status: common_1.HttpStatus.INTERNAL_SERVER_ERROR,
+                message: `[UPDATE_RESERVED_PRODUCT] Error al actualizar el producto reservado: ${error.message}`,
+            };
+        }
+    }
 };
 exports.VouchersService = VouchersService;
 exports.VouchersService = VouchersService = VouchersService_1 = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __param(0, (0, common_1.Inject)(config_1.NATS_SERVICE)),
+    __metadata("design:paramtypes", [microservices_1.ClientProxy])
 ], VouchersService);
 //# sourceMappingURL=vouchers.service.js.map

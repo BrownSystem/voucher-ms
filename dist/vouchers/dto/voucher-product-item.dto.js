@@ -9,11 +9,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VoucherProductItemDto = void 0;
+exports.UpdateVoucherProductItemDto = exports.VoucherProductItemDto = void 0;
 const class_validator_1 = require("class-validator");
 class VoucherProductItemDto {
     productId;
+    isReserved;
     description;
+    voucherId;
     branchId;
     quantity;
     price;
@@ -24,9 +26,18 @@ __decorate([
     __metadata("design:type", String)
 ], VoucherProductItemDto.prototype, "productId", void 0);
 __decorate([
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], VoucherProductItemDto.prototype, "isReserved", void 0);
+__decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], VoucherProductItemDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], VoucherProductItemDto.prototype, "voucherId", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
@@ -40,4 +51,49 @@ __decorate([
     (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
     __metadata("design:type", Number)
 ], VoucherProductItemDto.prototype, "price", void 0);
+class UpdateVoucherProductItemDto {
+    id;
+    productId;
+    isReserved;
+    description;
+    voucherId;
+    branchId;
+    price;
+}
+exports.UpdateVoucherProductItemDto = UpdateVoucherProductItemDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateVoucherProductItemDto.prototype, "id", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateVoucherProductItemDto.prototype, "productId", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], UpdateVoucherProductItemDto.prototype, "isReserved", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateVoucherProductItemDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateVoucherProductItemDto.prototype, "voucherId", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateVoucherProductItemDto.prototype, "branchId", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], UpdateVoucherProductItemDto.prototype, "price", void 0);
 //# sourceMappingURL=voucher-product-item.dto.js.map

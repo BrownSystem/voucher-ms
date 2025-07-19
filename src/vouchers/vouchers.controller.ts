@@ -4,6 +4,7 @@ import { VouchersService } from "./vouchers.service";
 import { CreateVoucherDto } from "./dto/create-voucher.dto";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
+import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 
 @Controller()
 export class VouchersController {
@@ -22,5 +23,17 @@ export class VouchersController {
   @MessagePattern({ cmd: "register_payment" })
   registerPayment(@Payload() createPaymentDto: CreatePaymentDto) {
     return this.vouchersService.registerPayment(createPaymentDto);
+  }
+
+  @MessagePattern({ cmd: "find_all_reserved_products" })
+  findAllReservedProductsByBranchId(@Payload() pagination: PaginationDto) {
+    return this.vouchersService.findAllReservedProductsByBranchId(pagination);
+  }
+
+  @MessagePattern({ cmd: "update_reserved_product" })
+  update(
+    @Payload() { id, data }: { id: string; data: UpdateVoucherProductItemDto }
+  ) {
+    return this.vouchersService.updateReservedProduct(id, data);
   }
 }

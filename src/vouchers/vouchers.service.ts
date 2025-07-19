@@ -1,9 +1,19 @@
 import { CreateVoucherDto } from "./dto/create-voucher.dto";
-import { HttpStatus, Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { ConditionPayment } from "src/enum";
+import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
+import { NATS_SERVICE } from "src/config";
+import { ClientProxy } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
 
 @Injectable()
 export class VouchersService extends PrismaClient implements OnModuleInit {
@@ -20,6 +30,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     this.logger.log("Database connected successfully");
   }
 
+  constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {
+    super();
+  }
   async create(createVoucherDto: CreateVoucherDto) {
     try {
       const {
@@ -42,26 +55,36 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         };
       }
 
-      // 2. Enriquecer productos con subtotal
+      // 2. Calcular subtotales y total
       const enrichedProducts = products.map((p) => ({
         productId: p.productId,
+        branchId: p.branchId,
+        isReserved: p.isReserved,
         description: p.description,
         quantity: p.quantity,
         price: p.price,
         subtotal: p.quantity * p.price,
       }));
 
+      if (createVoucherDto.type === "P") {
+        enrichedProducts.map(async (p) => {
+          const discountBranchProducts = await firstValueFrom(
+            this.client.send(
+              { cmd: "descrease_branch_product_stock" },
+              {
+                branchId: p.branchId,
+                productId: p.productId,
+                stock: p.quantity,
+              }
+            )
+          ); // For type P, all products are reserved
+        });
+      }
+
       const totalAmount = enrichedProducts.reduce(
         (sum, p) => sum + p.subtotal,
         0
       );
-
-      // 3. Ajustar paidAmount si hay initialPayments
-      const initialPaidTotal = Array.isArray(initialPayment)
-        ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
-        : 0;
-
-      const remainingAmount = totalAmount - paidAmount;
 
       if (totalAmount <= 0) {
         return {
@@ -69,6 +92,13 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
           message: "[CREATE_VOUCHER] El total debe ser mayor a cero.",
         };
       }
+
+      // 3. Calcular pagos iniciales
+      const initialPaidTotal = Array.isArray(initialPayment)
+        ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
+        : 0;
+
+      const remainingAmount = totalAmount - initialPaidTotal;
 
       // 4. Generar número si es REMITO
       let resolvedNumber = createVoucherDto.number;
@@ -84,13 +114,23 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         const lastRaw = lastRemito[0]?.number ?? "R-00000";
         const lastNumeric = parseInt(lastRaw.split("-")[1] || "0", 10);
         const next = lastNumeric + 1;
-
         resolvedNumber = `R-${next.toString().padStart(5, "0")}`;
       }
 
       const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
 
-      // 5. Transacción atómica: comprobante + pagos
+      const exists = await this.eVoucher.findUnique({
+        where: { number: resolvedNumber },
+      });
+
+      if (exists) {
+        return {
+          status: HttpStatus.CONFLICT,
+          message: `[CREATE_VOUCHER] Ya existe un comprobante con número ${resolvedNumber}`,
+        };
+      }
+
+      // 5. Transacción atómica: comprobante, productos y pagos
       const result = await this.$transaction(async (tx) => {
         const voucher = await tx.eVoucher.create({
           data: {
@@ -104,18 +144,25 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
             createdBy,
             emittedBy,
             deliveredBy,
-            products: { create: enrichedProducts },
           },
-          include: { products: true },
         });
 
-        // Validar existencia de bancos si hay pagos iniciales
+        const productsWithVoucherId = enrichedProducts.map((p) => ({
+          ...p,
+          voucherId: voucher.id,
+        }));
+
+        await tx.eVoucherProduct.createMany({
+          data: productsWithVoucherId,
+        });
+
         if (Array.isArray(initialPayment)) {
           for (const payment of initialPayment) {
             if (payment.bankId) {
               const bank = await tx.eBank.findUnique({
                 where: { id: payment.bankId },
               });
+
               if (!bank) {
                 throw new Error(
                   `[CREATE_PAYMENT] El banco ${payment.bankId} no existe.`
@@ -123,7 +170,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               }
             }
 
-            // Registrar cada pago
             await tx.ePayment.create({
               data: {
                 ...payment,
@@ -144,7 +190,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
           : "Comprobante registrado correctamente.",
       };
     } catch (error) {
-      // Manejo refinado de errores por clave foránea rota
       if (
         error.code === "P2003" &&
         error.meta?.target?.includes("EPayment_bankId_fkey")
@@ -289,6 +334,102 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: `[REGISTER_PAYMENT] No se pudo registrar el pago: ${error.message}`,
+      };
+    }
+  }
+
+  async findAllReservedProductsByBranchId(pagination: PaginationDto) {
+    const { emissionBranchId, limit, offset, search } = pagination;
+
+    const whereClause: any = {
+      isReserved: true,
+      voucher: {
+        emissionBranchId,
+      },
+    };
+
+    if (search) {
+      whereClause.OR = [
+        {
+          description: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          voucher: {
+            contactName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.eVoucherProduct.findMany({
+        where: whereClause,
+        skip: (offset - 1) * limit,
+        take: limit,
+        include: {
+          voucher: {
+            select: {
+              products: true, // si tenés relación con products
+              id: true,
+              number: true,
+              contactId: true,
+              contactName: true,
+              conditionPayment: true,
+              emissionBranchId: true,
+              status: true,
+              totalAmount: true,
+              paidAmount: true,
+              remainingAmount: true,
+              emissionDate: true,
+            },
+          },
+        },
+      }),
+      this.eVoucherProduct.count({ where: whereClause }),
+    ]);
+
+    return {
+      data,
+      total,
+      page: offset,
+      lastPage: Math.ceil(total / limit),
+    };
+  }
+
+  async updateReservedProduct(id: string, data: UpdateVoucherProductItemDto) {
+    try {
+      const { isReserved } = data;
+      const voucherProductsExists = await this.eVoucherProduct.update({
+        where: {
+          id,
+        },
+        data: {
+          isReserved,
+        },
+      });
+
+      if (!voucherProductsExists) {
+        return {
+          status: HttpStatus.NOT_FOUND,
+          message: `[UPDATE_RESERVED_PRODUCT] Producto reservado con ID ${id} no encontrado.`,
+        };
+      }
+
+      return {
+        status: HttpStatus.OK,
+        message: `[UPDATE_RESERVED_PRODUCT] Producto reservado actualizado correctamente.`,
+        data: voucherProductsExists,
+      };
+    } catch (error) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `[UPDATE_RESERVED_PRODUCT] Error al actualizar el producto reservado: ${error.message}`,
       };
     }
   }
