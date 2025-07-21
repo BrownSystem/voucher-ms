@@ -20,6 +20,7 @@ const enum_1 = require("../enum");
 const config_1 = require("../config");
 const microservices_1 = require("@nestjs/microservices");
 const rxjs_1 = require("rxjs");
+const puppeteer_1 = require("puppeteer");
 let VouchersService = VouchersService_1 = class VouchersService extends client_1.PrismaClient {
     client;
     logger = new common_1.Logger(VouchersService_1.name);
@@ -39,8 +40,9 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     }
     async create(createVoucherDto) {
         try {
-            const { products, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, ...voucherData } = createVoucherDto;
-            if (products.some((p) => p.quantity <= 0 || p.price <= 0)) {
+            const { products, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, destinationBranchId, ...voucherData } = createVoucherDto;
+            if (products.some((p) => p.quantity <= 0 ||
+                (p.price <= 0 && createVoucherDto.type !== "REMITO"))) {
                 return {
                     status: common_1.HttpStatus.BAD_REQUEST,
                     message: "[CREATE_VOUCHER] Cada producto debe tener cantidad y precio válidos.",
@@ -55,9 +57,23 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 price: p.price,
                 subtotal: p.quantity * p.price,
             }));
-            if (createVoucherDto.type === "P") {
+            if (createVoucherDto.type === "REMITO") {
                 enrichedProducts.map(async (p) => {
-                    const discountBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                    const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                        branchId: p.branchId,
+                        productId: p.productId,
+                        stock: p.quantity,
+                    }));
+                    const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                        branchId: destinationBranchId,
+                        productId: p.productId,
+                        stock: p.quantity,
+                    }));
+                });
+            }
+            else {
+                enrichedProducts.map(async (p) => {
+                    const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
                         branchId: p.branchId,
                         productId: p.productId,
                         stock: p.quantity,
@@ -65,7 +81,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 });
             }
             const totalAmount = enrichedProducts.reduce((sum, p) => sum + p.subtotal, 0);
-            if (totalAmount <= 0) {
+            if (totalAmount <= 0 && createVoucherDto.type !== "REMITO") {
                 return {
                     status: common_1.HttpStatus.BAD_REQUEST,
                     message: "[CREATE_VOUCHER] El total debe ser mayor a cero.",
@@ -359,6 +375,182 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 message: `[UPDATE_RESERVED_PRODUCT] Error al actualizar el producto reservado: ${error.message}`,
             };
         }
+    }
+    async buildHtml(voucher) {
+        const date = new Date(voucher.emissionDate).toLocaleDateString("es-AR");
+        const products = voucher.products
+            .map((p) => `
+        <tr>
+          <td>${p.description}</td>
+          <td>${p.quantity}</td>
+          <td>$${p.price.toFixed(2)}</td>
+          <td>$${(p.price * p.quantity).toFixed(2)}</td>
+        </tr>
+      `)
+            .join("");
+        const payments = voucher.payments
+            .map((p) => `
+        <li>${p.method} | $${p.amount.toFixed(2)} | ${new Date(p.receivedAt).toLocaleDateString("es-AR")}</li>
+      `)
+            .join("");
+        const subtotal = voucher.products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+        const total = voucher.totalAmount ?? subtotal;
+        const paid = voucher.paidAmount ?? 0;
+        const remaining = voucher.remainingAmount ?? total - paid;
+        return `
+    <html>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+        <style>
+          * {
+            font-family: 'Outfit', sans-serif;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            padding: 40px;
+            color: #333;
+            background-color: #fff;
+            font-size: 14px;
+          }
+          h1 {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            letter-spacing: 0.5px;
+          }
+          .header {
+            margin-bottom: 20px;
+          }
+          .header p {
+            margin: 5px 0;
+            font-weight: 400;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 16px;
+            border: 1px solid #e5e7eb;
+          }
+          th, td {
+            border: 1px solid #e5e7eb;
+            padding: 10px;
+            text-align: left;
+          }
+          th {
+            background-color: #f9fafb;
+            font-weight: 500;
+          }
+          .totals {
+            width: 280px;
+            float: right;
+            margin-top: 20px;
+            font-size: 13px;
+            border: 1px solid #e5e7eb;
+          }
+          .totals tr {
+            border-bottom: 1px solid #eee;
+          }
+          .totals td {
+            padding: 8px 10px;
+          }
+          .totals td:last-child {
+            text-align: right;
+          }
+          .payments {
+            margin-top: 30px;
+            font-size: 13px;
+          }
+          .payments ul {
+            padding-left: 18px;
+            margin-top: 6px;
+          }
+          .footer {
+            font-size: 11px;
+            margin-top: 60px;
+            display: flex;
+            justify-content: space-between;
+            color: #6b7280;
+            border-top: 1px solid #d1d5db;
+            padding-top: 16px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${voucher.type || "Factura"}</h1>
+
+        <div class="header">
+          <p><strong>N°:</strong> ${voucher.number}</p>
+          <p><strong>Fecha:</strong> ${date}</p>
+          <p><strong>Cliente:</strong> ${voucher.contactName || "Cliente N/D"}</p>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Descripción</th>
+              <th>Cantidad</th>
+              <th>Precio</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${products}
+          </tbody>
+        </table>
+
+        <table class="totals">
+          <tr><td><strong>Subtotal:</strong></td><td>$${subtotal.toFixed(2)}</td></tr>
+          <tr><td><strong>Total:</strong></td><td>$${total.toFixed(2)}</td></tr>
+          <tr><td><strong>Pagado:</strong></td><td>$${paid.toFixed(2)}</td></tr>
+          <tr><td><strong>Saldo:</strong></td><td style="color:#dc2626;"><strong>$${remaining.toFixed(2)}</strong></td></tr>
+        </table>
+
+        ${voucher.payments.length > 0
+            ? `<div class="payments">
+                <strong>Pagos recibidos:</strong>
+                <ul>${payments}</ul>
+              </div>`
+            : ""}
+
+        <div class="footer">
+          <div>
+            <strong>Contacto</strong><br />
+            (555) 1234 - 5678<br />
+            hello@business.com<br />
+            www.sitioweb.com
+          </div>
+          <div>
+            <strong>Datos para pago</strong><br />
+            Banco: Banco<br />
+            CBU/CVU: 0000 1234 5678<br />
+            Alias: empresa.alias<br />
+            Fecha estimada: ${date}
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+    }
+    async generateVoucherPdf(voucherId) {
+        const voucher = await this.eVoucher.findUnique({
+            where: { id: voucherId },
+            include: { products: true, payments: true },
+        });
+        if (!voucher)
+            throw new Error("No se encontró el comprobante");
+        const html = await this.buildHtml(voucher);
+        const browser = await puppeteer_1.default.launch();
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: "networkidle0" });
+        const pdfUint8 = await page.pdf({ format: "A4", printBackground: true });
+        await browser.close();
+        return Buffer.from(pdfUint8);
     }
 };
 exports.VouchersService = VouchersService;

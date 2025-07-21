@@ -6,6 +6,7 @@ import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 export declare class VouchersController {
     private readonly vouchersService;
     constructor(vouchersService: VouchersService);
+    generateVoucherPdf(voucherId: string): Promise<Buffer<ArrayBufferLike>>;
     create(createVoucherDto: CreateVoucherDto): Promise<{
         status: import("@nestjs/common").HttpStatus;
         message: string;
@@ -16,8 +17,6 @@ export declare class VouchersController {
         data: {
             number: string;
             id: string;
-            currency: import(".prisma/client").$Enums.Currency;
-            exchangeRate: number | null;
             letter: string | null;
             type: import(".prisma/client").$Enums.VoucherType;
             emissionDate: Date;
@@ -25,23 +24,25 @@ export declare class VouchersController {
             emissionBranchId: string | null;
             emissionBranchName: string | null;
             destinationBranchId: string | null;
-            contactId: string | null;
-            contactName: string | null;
-            conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
-            totalAmount: number | null;
-            paidAmount: number;
-            observation: string | null;
-            available: boolean;
-            createdBy: string | null;
-            emittedBy: string | null;
-            deliveredBy: string | null;
             status: import(".prisma/client").$Enums.VoucherStatus;
             financialStatus: string | null;
             logisticStatus: string | null;
+            contactId: string | null;
+            contactName: string | null;
+            conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
+            currency: import(".prisma/client").$Enums.Currency;
+            exchangeRate: number | null;
+            totalAmount: number | null;
+            paidAmount: number;
             remainingAmount: number;
+            observation: string | null;
+            available: boolean;
             createdAt: Date;
             updatedAt: Date;
+            createdBy: string | null;
             updatedBy: string | null;
+            emittedBy: string | null;
+            deliveredBy: string | null;
         };
         message: string;
         status?: undefined;
@@ -49,23 +50,25 @@ export declare class VouchersController {
     findAllConditionPayment(pagination: PaginationDto): Promise<{
         data: ({
             products: {
-                productId: string;
-                isReserved: boolean;
-                description: string;
+                id: string;
                 voucherId: string;
-                branchId: string | null;
+                isReserved: boolean;
+                productId: string;
+                description: string;
                 quantity: number;
                 price: number;
-                id: string;
                 subtotal: number;
+                branchId: string | null;
             }[];
             payments: {
-                voucherId: string;
                 id: string;
-                method: import(".prisma/client").$Enums.PaymentMethod;
-                amount: number;
                 currency: import(".prisma/client").$Enums.Currency;
                 exchangeRate: number | null;
+                createdAt: Date;
+                updatedAt: Date;
+                voucherId: string;
+                method: import(".prisma/client").$Enums.PaymentMethod;
+                amount: number;
                 originalAmount: number | null;
                 receivedAt: Date;
                 receivedBy: string | null;
@@ -73,14 +76,10 @@ export declare class VouchersController {
                 chequeNumber: string | null;
                 chequeDueDate: Date | null;
                 chequeStatus: string | null;
-                createdAt: Date;
-                updatedAt: Date;
             }[];
         } & {
             number: string;
             id: string;
-            currency: import(".prisma/client").$Enums.Currency;
-            exchangeRate: number | null;
             letter: string | null;
             type: import(".prisma/client").$Enums.VoucherType;
             emissionDate: Date;
@@ -88,23 +87,25 @@ export declare class VouchersController {
             emissionBranchId: string | null;
             emissionBranchName: string | null;
             destinationBranchId: string | null;
-            contactId: string | null;
-            contactName: string | null;
-            conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
-            totalAmount: number | null;
-            paidAmount: number;
-            observation: string | null;
-            available: boolean;
-            createdBy: string | null;
-            emittedBy: string | null;
-            deliveredBy: string | null;
             status: import(".prisma/client").$Enums.VoucherStatus;
             financialStatus: string | null;
             logisticStatus: string | null;
+            contactId: string | null;
+            contactName: string | null;
+            conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
+            currency: import(".prisma/client").$Enums.Currency;
+            exchangeRate: number | null;
+            totalAmount: number | null;
+            paidAmount: number;
             remainingAmount: number;
+            observation: string | null;
+            available: boolean;
             createdAt: Date;
             updatedAt: Date;
+            createdBy: string | null;
             updatedBy: string | null;
+            emittedBy: string | null;
+            deliveredBy: string | null;
         })[];
         meta: {
             total: number;
@@ -127,12 +128,14 @@ export declare class VouchersController {
     } | {
         success: boolean;
         data: {
-            voucherId: string;
             id: string;
-            method: import(".prisma/client").$Enums.PaymentMethod;
-            amount: number;
             currency: import(".prisma/client").$Enums.Currency;
             exchangeRate: number | null;
+            createdAt: Date;
+            updatedAt: Date;
+            voucherId: string;
+            method: import(".prisma/client").$Enums.PaymentMethod;
+            amount: number;
             originalAmount: number | null;
             receivedAt: Date;
             receivedBy: string | null;
@@ -140,8 +143,6 @@ export declare class VouchersController {
             chequeNumber: string | null;
             chequeDueDate: Date | null;
             chequeStatus: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         message: string;
         status?: undefined;
@@ -153,35 +154,35 @@ export declare class VouchersController {
                 id: string;
                 emissionDate: Date;
                 emissionBranchId: string | null;
+                status: import(".prisma/client").$Enums.VoucherStatus;
                 contactId: string | null;
                 contactName: string | null;
                 conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
-                products: {
-                    productId: string;
-                    isReserved: boolean;
-                    description: string;
-                    voucherId: string;
-                    branchId: string | null;
-                    quantity: number;
-                    price: number;
-                    id: string;
-                    subtotal: number;
-                }[];
                 totalAmount: number | null;
                 paidAmount: number;
-                status: import(".prisma/client").$Enums.VoucherStatus;
                 remainingAmount: number;
+                products: {
+                    id: string;
+                    voucherId: string;
+                    isReserved: boolean;
+                    productId: string;
+                    description: string;
+                    quantity: number;
+                    price: number;
+                    subtotal: number;
+                    branchId: string | null;
+                }[];
             };
         } & {
-            productId: string;
-            isReserved: boolean;
-            description: string;
+            id: string;
             voucherId: string;
-            branchId: string | null;
+            isReserved: boolean;
+            productId: string;
+            description: string;
             quantity: number;
             price: number;
-            id: string;
             subtotal: number;
+            branchId: string | null;
         })[];
         total: number;
         page: number;
@@ -198,15 +199,15 @@ export declare class VouchersController {
         status: import("@nestjs/common").HttpStatus;
         message: string;
         data: {
-            productId: string;
-            isReserved: boolean;
-            description: string;
+            id: string;
             voucherId: string;
-            branchId: string | null;
+            isReserved: boolean;
+            productId: string;
+            description: string;
             quantity: number;
             price: number;
-            id: string;
             subtotal: number;
+            branchId: string | null;
         };
     }>;
 }

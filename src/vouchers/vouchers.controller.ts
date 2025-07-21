@@ -5,10 +5,15 @@ import { CreateVoucherDto } from "./dto/create-voucher.dto";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
-
+import { Response } from 'express';
 @Controller()
 export class VouchersController {
   constructor(private readonly vouchersService: VouchersService) {}
+
+  @MessagePattern({ cmd: "generate_voucher_pdf" })
+  generateVoucherPdf(@Payload() voucherId: string) {
+    return this.vouchersService.generateVoucherPdf(voucherId);
+  }
 
   @MessagePattern({ cmd: "create_voucher" })
   create(@Payload() createVoucherDto: CreateVoucherDto) {

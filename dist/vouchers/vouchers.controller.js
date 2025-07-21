@@ -24,6 +24,9 @@ let VouchersController = class VouchersController {
     constructor(vouchersService) {
         this.vouchersService = vouchersService;
     }
+    generateVoucherPdf(voucherId) {
+        return this.vouchersService.generateVoucherPdf(voucherId);
+    }
     create(createVoucherDto) {
         return this.vouchersService.create(createVoucherDto);
     }
@@ -41,6 +44,13 @@ let VouchersController = class VouchersController {
     }
 };
 exports.VouchersController = VouchersController;
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: "generate_voucher_pdf" }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], VouchersController.prototype, "generateVoucherPdf", null);
 __decorate([
     (0, microservices_1.MessagePattern)({ cmd: "create_voucher" }),
     __param(0, (0, microservices_1.Payload)()),
