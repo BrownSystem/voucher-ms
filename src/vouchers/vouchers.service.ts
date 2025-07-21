@@ -14,7 +14,6 @@ import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 import { NATS_SERVICE } from "src/config";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import puppeteer from "puppeteer";
 @Injectable()
 export class VouchersService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(VouchersService.name);
@@ -638,7 +637,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
   `;
   }
 
-  async generateVoucherPdf(voucherId: string): Promise<Buffer> {
+  async generateVoucherHtml(voucherId: string): Promise<string> {
     const voucher = await this.eVoucher.findUnique({
       where: { id: voucherId },
       include: { products: true, payments: true },
@@ -646,16 +645,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
     if (!voucher) throw new Error("No se encontró el comprobante");
 
-    const html = await this.buildHtml(voucher);
-
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    const pdfUint8 = await page.pdf({ format: "A4", printBackground: true });
-    await browser.close();
-
-    return Buffer.from(pdfUint8); // 👈 solución al error de tipo
+    return await this.buildHtml(voucher);
   }
 }

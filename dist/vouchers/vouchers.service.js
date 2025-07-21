@@ -545,12 +545,21 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         if (!voucher)
             throw new Error("No se encontró el comprobante");
         const html = await this.buildHtml(voucher);
-        const browser = await puppeteer_1.default.launch();
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle0" });
-        const pdfUint8 = await page.pdf({ format: "A4", printBackground: true });
-        await browser.close();
-        return Buffer.from(pdfUint8);
+        try {
+            const browser = await puppeteer_1.default.launch({
+                headless: true,
+                args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            });
+            const page = await browser.newPage();
+            await page.setContent(html, { waitUntil: "networkidle0" });
+            const pdfUint8 = await page.pdf({ format: "A4", printBackground: true });
+            await browser.close();
+            return Buffer.from(pdfUint8);
+        }
+        catch (error) {
+            console.error("Error al generar el PDF:", error);
+            throw new Error("No se pudo generar el PDF");
+        }
     }
 };
 exports.VouchersService = VouchersService;
