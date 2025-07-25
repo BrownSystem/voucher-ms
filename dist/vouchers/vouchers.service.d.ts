@@ -5,13 +5,14 @@ import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 import { ClientProxy } from "@nestjs/microservices";
+import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
 export declare class VouchersService extends PrismaClient implements OnModuleInit {
     private readonly client;
     private readonly logger;
     private _normalizeText;
     onModuleInit(): void;
     constructor(client: ClientProxy);
-    create(createVoucherDto: CreateVoucherDto): Promise<{
+    create(createVoucherDto: CreateVoucherDto): Promise<Promise<void>[] | {
         status: HttpStatus;
         message: string;
         success?: undefined;
@@ -155,16 +156,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         data: ({
             voucher: {
                 number: string;
-                id: string;
-                emissionDate: Date;
-                emissionBranchId: string | null;
-                status: import(".prisma/client").$Enums.VoucherStatus;
-                contactId: string | null;
-                contactName: string | null;
-                conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
-                totalAmount: number | null;
-                paidAmount: number;
-                remainingAmount: number;
                 products: {
                     id: string;
                     voucherId: string;
@@ -176,6 +167,16 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
                     subtotal: number;
                     branchId: string | null;
                 }[];
+                id: string;
+                emissionDate: Date;
+                emissionBranchId: string | null;
+                status: import(".prisma/client").$Enums.VoucherStatus;
+                contactId: string | null;
+                contactName: string | null;
+                conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
+                totalAmount: number | null;
+                paidAmount: number;
+                remainingAmount: number;
             };
         } & {
             id: string;
@@ -212,5 +213,8 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         };
     }>;
     buildHtml(voucher: any): Promise<string>;
-    generateVoucherPdf(voucherId: string): Promise<Buffer>;
+    generateVoucherHtml(voucherId: string): Promise<string>;
+    generateNextNumber(dto: GenerateNumberVoucherDto): Promise<{
+        number: string;
+    }>;
 }

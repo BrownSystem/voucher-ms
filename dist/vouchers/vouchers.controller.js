@@ -19,13 +19,17 @@ const vouchers_service_1 = require("./vouchers.service");
 const create_voucher_dto_1 = require("./dto/create-voucher.dto");
 const pagination_dto_1 = require("./dto/pagination.dto");
 const create_payment_dto_1 = require("./dto/create-payment.dto");
+const generate_number_dto_1 = require("./dto/generate-number.dto");
 let VouchersController = class VouchersController {
     vouchersService;
     constructor(vouchersService) {
         this.vouchersService = vouchersService;
     }
     generateVoucherPdf(voucherId) {
-        return this.vouchersService.generateVoucherPdf(voucherId);
+        return this.vouchersService.generateVoucherHtml(voucherId);
+    }
+    generateNextNumberForVoucher(generateNumber) {
+        return this.vouchersService.generateNextNumber(generateNumber);
     }
     create(createVoucherDto) {
         return this.vouchersService.create(createVoucherDto);
@@ -45,12 +49,19 @@ let VouchersController = class VouchersController {
 };
 exports.VouchersController = VouchersController;
 __decorate([
-    (0, microservices_1.MessagePattern)({ cmd: "generate_voucher_pdf" }),
+    (0, microservices_1.MessagePattern)({ cmd: "generate_voucher_html" }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "generateVoucherPdf", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: "generate_number_voucher" }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [generate_number_dto_1.GenerateNumberVoucherDto]),
+    __metadata("design:returntype", void 0)
+], VouchersController.prototype, "generateNextNumberForVoucher", null);
 __decorate([
     (0, microservices_1.MessagePattern)({ cmd: "create_voucher" }),
     __param(0, (0, microservices_1.Payload)()),

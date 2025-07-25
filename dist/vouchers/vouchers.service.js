@@ -20,7 +20,6 @@ const enum_1 = require("../enum");
 const config_1 = require("../config");
 const microservices_1 = require("@nestjs/microservices");
 const rxjs_1 = require("rxjs");
-const puppeteer_1 = require("puppeteer");
 let VouchersService = VouchersService_1 = class VouchersService extends client_1.PrismaClient {
     client;
     logger = new common_1.Logger(VouchersService_1.name);
@@ -58,18 +57,30 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 subtotal: p.quantity * p.price,
             }));
             if (createVoucherDto.type === "REMITO") {
-                enrichedProducts.map(async (p) => {
-                    const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
-                        branchId: p.branchId,
-                        productId: p.productId,
-                        stock: p.quantity,
-                    }));
-                    const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
-                        branchId: destinationBranchId,
-                        productId: p.productId,
-                        stock: p.quantity,
-                    }));
-                });
+                if (createVoucherDto.emissionBranchId ===
+                    createVoucherDto.destinationBranchId) {
+                    return enrichedProducts.map(async (p) => {
+                        const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                            branchId: p.branchId,
+                            productId: p.productId,
+                            stock: p.quantity,
+                        }));
+                    });
+                }
+                else {
+                    enrichedProducts.map(async (p) => {
+                        const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                            branchId: p.branchId,
+                            productId: p.productId,
+                            stock: p.quantity,
+                        }));
+                        const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                            branchId: destinationBranchId,
+                            productId: p.productId,
+                            stock: p.quantity,
+                        }));
+                    });
+                }
             }
             else {
                 enrichedProducts.map(async (p) => {
@@ -105,15 +116,6 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 resolvedNumber = `R-${next.toString().padStart(5, "0")}`;
             }
             const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
-            const exists = await this.eVoucher.findUnique({
-                where: { number: resolvedNumber },
-            });
-            if (exists) {
-                return {
-                    status: common_1.HttpStatus.CONFLICT,
-                    message: `[CREATE_VOUCHER] Ya existe un comprobante con número ${resolvedNumber}`,
-                };
-            }
             const result = await this.$transaction(async (tx) => {
                 const voucher = await tx.eVoucher.create({
                     data: {
@@ -180,9 +182,8 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     }
     async findAllConditionPayment(pagination) {
         try {
-            const { limit, offset, conditionPayment, search, emissionBranchId } = pagination;
+            const { limit, offset, conditionPayment, search } = pagination;
             const whereClause = {
-                emissionBranchId,
                 conditionPayment,
                 available: true,
             };
@@ -537,29 +538,40 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     </html>
   `;
     }
-    async generateVoucherPdf(voucherId) {
+    async generateVoucherHtml(voucherId) {
         const voucher = await this.eVoucher.findUnique({
             where: { id: voucherId },
             include: { products: true, payments: true },
         });
         if (!voucher)
             throw new Error("No se encontró el comprobante");
-        const html = await this.buildHtml(voucher);
-        try {
-            const browser = await puppeteer_1.default.launch({
-                headless: true,
-                args: ["--no-sandbox", "--disable-setuid-sandbox"],
-            });
-            const page = await browser.newPage();
-            await page.setContent(html, { waitUntil: "networkidle0" });
-            const pdfUint8 = await page.pdf({ format: "A4", printBackground: true });
-            await browser.close();
-            return Buffer.from(pdfUint8);
+        return await this.buildHtml(voucher);
+    }
+    async generateNextNumber(dto) {
+        const { type, emissionBranchId } = dto;
+        const lastVoucher = await this.eVoucher.findFirst({
+            where: { type, emissionBranchId },
+            orderBy: { number: "desc" },
+            select: { number: true },
+        });
+        const prefixMap = {
+            FACTURA: "F",
+            REMITO: "R",
+            NOTA_CREDITO: "NC",
+            P: "P",
+        };
+        const prefix = prefixMap[type] || type;
+        let nextNumericPart = 1;
+        if (lastVoucher?.number) {
+            const match = lastVoucher.number.match(/(\d+)$/);
+            if (match) {
+                nextNumericPart = parseInt(match[1], 10) + 1;
+            }
         }
-        catch (error) {
-            console.error("Error al generar el PDF:", error);
-            throw new Error("No se pudo generar el PDF");
-        }
+        const paddedNumber = String(nextNumericPart).padStart(4, "0");
+        return {
+            number: `${prefix}-${paddedNumber}`,
+        };
     }
 };
 exports.VouchersService = VouchersService;

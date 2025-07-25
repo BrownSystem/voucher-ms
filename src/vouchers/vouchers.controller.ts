@@ -5,7 +5,7 @@ import { CreateVoucherDto } from "./dto/create-voucher.dto";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
-import { Response } from "express";
+import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
 @Controller()
 export class VouchersController {
   constructor(private readonly vouchersService: VouchersService) {}
@@ -13,6 +13,13 @@ export class VouchersController {
   @MessagePattern({ cmd: "generate_voucher_html" })
   generateVoucherPdf(@Payload() voucherId: string) {
     return this.vouchersService.generateVoucherHtml(voucherId);
+  }
+
+  @MessagePattern({ cmd: "generate_number_voucher" })
+  generateNextNumberForVoucher(
+    @Payload() generateNumber: GenerateNumberVoucherDto
+  ) {
+    return this.vouchersService.generateNextNumber(generateNumber);
   }
 
   @MessagePattern({ cmd: "create_voucher" })

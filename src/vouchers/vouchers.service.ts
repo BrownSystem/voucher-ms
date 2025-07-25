@@ -6,7 +6,7 @@ import {
   Logger,
   OnModuleInit,
 } from "@nestjs/common";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, VoucherType } from "@prisma/client";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { ConditionPayment } from "src/enum";
@@ -14,6 +14,7 @@ import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 import { NATS_SERVICE } from "src/config";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
+import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
 @Injectable()
 export class VouchersService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(VouchersService.name);
@@ -73,28 +74,46 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       }));
 
       if (createVoucherDto.type === "REMITO") {
-        enrichedProducts.map(async (p) => {
-          const decreaseBranchProducts = await firstValueFrom(
-            this.client.send(
-              { cmd: "descrease_branch_product_stock" },
-              {
-                branchId: p.branchId,
-                productId: p.productId,
-                stock: p.quantity,
-              }
-            )
-          );
-          const increaseBranchProducts = await firstValueFrom(
-            this.client.send(
-              { cmd: "increase_branch_product_stock" },
-              {
-                branchId: destinationBranchId,
-                productId: p.productId,
-                stock: p.quantity,
-              }
-            )
-          );
-        });
+        if (
+          createVoucherDto.emissionBranchId ===
+          createVoucherDto.destinationBranchId
+        ) {
+          return enrichedProducts.map(async (p) => {
+            const increaseBranchProducts = await firstValueFrom(
+              this.client.send(
+                { cmd: "increase_branch_product_stock" },
+                {
+                  branchId: p.branchId,
+                  productId: p.productId,
+                  stock: p.quantity,
+                }
+              )
+            );
+          });
+        } else {
+          enrichedProducts.map(async (p) => {
+            const decreaseBranchProducts = await firstValueFrom(
+              this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId: p.branchId,
+                  productId: p.productId,
+                  stock: p.quantity,
+                }
+              )
+            );
+            const increaseBranchProducts = await firstValueFrom(
+              this.client.send(
+                { cmd: "increase_branch_product_stock" },
+                {
+                  branchId: destinationBranchId,
+                  productId: p.productId,
+                  stock: p.quantity,
+                }
+              )
+            );
+          });
+        }
       } else {
         enrichedProducts.map(async (p) => {
           const decreaseBranchProducts = await firstValueFrom(
@@ -147,17 +166,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       }
 
       const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
-
-      const exists = await this.eVoucher.findUnique({
-        where: { number: resolvedNumber },
-      });
-
-      if (exists) {
-        return {
-          status: HttpStatus.CONFLICT,
-          message: `[CREATE_VOUCHER] Ya existe un comprobante con número ${resolvedNumber}`,
-        };
-      }
 
       // 5. Transacción atómica: comprobante, productos y pagos
       const result = await this.$transaction(async (tx) => {
@@ -239,10 +247,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
   async findAllConditionPayment(pagination: PaginationDto) {
     try {
-      const { limit, offset, conditionPayment, search, emissionBranchId } =
-        pagination;
+      const { limit, offset, conditionPayment, search } = pagination;
       const whereClause: any = {
-        emissionBranchId,
         conditionPayment,
         available: true,
       };
@@ -646,5 +652,39 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     if (!voucher) throw new Error("No se encontró el comprobante");
 
     return await this.buildHtml(voucher);
+  }
+
+  async generateNextNumber(dto: GenerateNumberVoucherDto) {
+    const { type, emissionBranchId } = dto;
+
+    const lastVoucher = await this.eVoucher.findFirst({
+      where: { type, emissionBranchId },
+      orderBy: { number: "desc" },
+      select: { number: true },
+    });
+
+    // Prefijo según tipo
+    const prefixMap = {
+      FACTURA: "F",
+      REMITO: "R",
+      NOTA_CREDITO: "NC",
+      P: "P",
+    };
+
+    const prefix = prefixMap[type] || type;
+
+    let nextNumericPart = 1;
+
+    if (lastVoucher?.number) {
+      const match = lastVoucher.number.match(/(\d+)$/);
+      if (match) {
+        nextNumericPart = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    const paddedNumber = String(nextNumericPart).padStart(4, "0");
+    return {
+      number: `${prefix}-${paddedNumber}`,
+    };
   }
 }

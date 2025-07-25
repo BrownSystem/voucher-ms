@@ -3,11 +3,15 @@ import { CreateVoucherDto } from "./dto/create-voucher.dto";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
+import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
 export declare class VouchersController {
     private readonly vouchersService;
     constructor(vouchersService: VouchersService);
-    generateVoucherPdf(voucherId: string): Promise<Buffer<ArrayBufferLike>>;
-    create(createVoucherDto: CreateVoucherDto): Promise<{
+    generateVoucherPdf(voucherId: string): Promise<string>;
+    generateNextNumberForVoucher(generateNumber: GenerateNumberVoucherDto): Promise<{
+        number: string;
+    }>;
+    create(createVoucherDto: CreateVoucherDto): Promise<Promise<void>[] | {
         status: import("@nestjs/common").HttpStatus;
         message: string;
         success?: undefined;
@@ -151,16 +155,6 @@ export declare class VouchersController {
         data: ({
             voucher: {
                 number: string;
-                id: string;
-                emissionDate: Date;
-                emissionBranchId: string | null;
-                status: import(".prisma/client").$Enums.VoucherStatus;
-                contactId: string | null;
-                contactName: string | null;
-                conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
-                totalAmount: number | null;
-                paidAmount: number;
-                remainingAmount: number;
                 products: {
                     id: string;
                     voucherId: string;
@@ -172,6 +166,16 @@ export declare class VouchersController {
                     subtotal: number;
                     branchId: string | null;
                 }[];
+                id: string;
+                emissionDate: Date;
+                emissionBranchId: string | null;
+                status: import(".prisma/client").$Enums.VoucherStatus;
+                contactId: string | null;
+                contactName: string | null;
+                conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
+                totalAmount: number | null;
+                paidAmount: number;
+                remainingAmount: number;
             };
         } & {
             id: string;
