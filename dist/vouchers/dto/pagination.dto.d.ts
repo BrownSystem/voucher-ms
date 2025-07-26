@@ -1,3 +1,4 @@
+import { VoucherType } from "@prisma/client";
 import { ConditionPayment } from "src/enum";
 export declare class PaginationDto {
     conditionPayment: ConditionPayment;
@@ -5,5 +6,6 @@ export declare class PaginationDto {
     limit: number;
     offset: number;
     search?: string;
+    type?: VoucherType;
     constructor(partial?: Partial<PaginationDto>);
 }

@@ -39,7 +39,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     }
     async create(createVoucherDto) {
         try {
-            const { products, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, destinationBranchId, ...voucherData } = createVoucherDto;
+            const { products, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, destinationBranchId, destinationBranchName, ...voucherData } = createVoucherDto;
             if (products.some((p) => p.quantity <= 0 ||
                 (p.price <= 0 && createVoucherDto.type !== "REMITO"))) {
                 return {
@@ -59,7 +59,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
             if (createVoucherDto.type === "REMITO") {
                 if (createVoucherDto.emissionBranchId ===
                     createVoucherDto.destinationBranchId) {
-                    return enrichedProducts.map(async (p) => {
+                    enrichedProducts.map(async (p) => {
                         const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
                             branchId: p.branchId,
                             productId: p.productId,
@@ -120,6 +120,8 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 const voucher = await tx.eVoucher.create({
                     data: {
                         ...voucherData,
+                        destinationBranchId,
+                        destinationBranchName,
                         number: resolvedNumber,
                         status: resolvedStatus,
                         totalAmount,
@@ -182,8 +184,9 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     }
     async findAllConditionPayment(pagination) {
         try {
-            const { limit, offset, conditionPayment, search } = pagination;
+            const { limit, offset, conditionPayment, search, type } = pagination;
             const whereClause = {
+                type,
                 conditionPayment,
                 available: true,
             };
@@ -378,8 +381,37 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         }
     }
     async buildHtml(voucher) {
-        const date = new Date(voucher.emissionDate).toLocaleDateString("es-AR");
-        const products = voucher.products
+        const formatDate = (d) => new Date(d).toLocaleDateString("es-AR");
+        const headerFields = [];
+        const pushIfExists = (label, value) => {
+            if (value !== null && value !== undefined && value !== "") {
+                headerFields.push(`<p><strong>${label}:</strong> ${value}</p>`);
+            }
+        };
+        pushIfExists("N°", voucher.number);
+        pushIfExists("Fecha", formatDate(voucher.emissionDate));
+        pushIfExists("Cliente", voucher.contactName);
+        switch (voucher.type) {
+            case "P":
+                pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
+                break;
+            case "REMITO":
+                pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
+                pushIfExists("Sucursal Destino", voucher.destinationBranchName);
+                break;
+            case "FACTURA":
+            case "NOTA_CREDITO":
+                pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
+                pushIfExists("ID Sucursal Emisión", voucher.emissionBranchId);
+                pushIfExists("Condición de Pago", voucher.conditionPayment);
+                pushIfExists("Moneda", voucher.currency);
+                if (voucher.type === "NOTA_CREDITO") {
+                    pushIfExists("Observación", voucher.observation);
+                }
+                break;
+        }
+        const headerHtml = headerFields.join("\n");
+        const productsHtml = voucher.products
             .map((p) => `
         <tr>
           <td>${p.description}</td>
@@ -389,9 +421,9 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         </tr>
       `)
             .join("");
-        const payments = voucher.payments
+        const paymentsHtml = voucher.payments
             .map((p) => `
-        <li>${p.method} | $${p.amount.toFixed(2)} | ${new Date(p.receivedAt).toLocaleDateString("es-AR")}</li>
+        <li>${p.method} | $${p.amount.toFixed(2)} | ${formatDate(p.receivedAt)}</li>
       `)
             .join("");
         const subtotal = voucher.products.reduce((sum, p) => sum + p.price * p.quantity, 0);
@@ -399,143 +431,127 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         const paid = voucher.paidAmount ?? 0;
         const remaining = voucher.remainingAmount ?? total - paid;
         return `
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-        <style>
-          * {
-            font-family: 'Outfit', sans-serif;
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-          }
-          body {
-            padding: 40px;
-            color: #333;
-            background-color: #fff;
-            font-size: 14px;
-          }
-          h1 {
-            text-align: center;
-            font-size: 22px;
-            font-weight: 600;
-            margin-bottom: 24px;
-            letter-spacing: 0.5px;
-          }
-          .header {
-            margin-bottom: 20px;
-          }
-          .header p {
-            margin: 5px 0;
-            font-weight: 400;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            margin-top: 16px;
-            border: 1px solid #e5e7eb;
-          }
-          th, td {
-            border: 1px solid #e5e7eb;
-            padding: 10px;
-            text-align: left;
-          }
-          th {
-            background-color: #f9fafb;
-            font-weight: 500;
-          }
-          .totals {
-            width: 280px;
-            float: right;
-            margin-top: 20px;
-            font-size: 13px;
-            border: 1px solid #e5e7eb;
-          }
-          .totals tr {
-            border-bottom: 1px solid #eee;
-          }
-          .totals td {
-            padding: 8px 10px;
-          }
-          .totals td:last-child {
-            text-align: right;
-          }
-          .payments {
-            margin-top: 30px;
-            font-size: 13px;
-          }
-          .payments ul {
-            padding-left: 18px;
-            margin-top: 6px;
-          }
-          .footer {
-            font-size: 11px;
-            margin-top: 60px;
-            display: flex;
-            justify-content: space-between;
-            color: #6b7280;
-            border-top: 1px solid #d1d5db;
-            padding-top: 16px;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>${voucher.type || "Factura"}</h1>
+  <html>
+    <head>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+      <style>
+        * {
+          font-family: 'Outfit', sans-serif;
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        body {
+          padding: 40px;
+          color: #333;
+          background-color: #fff;
+          font-size: 14px;
+        }
+        h1 {
+          text-align: center;
+          font-size: 22px;
+          font-weight: 600;
+          margin-bottom: 24px;
+          letter-spacing: 0.5px;
+        }
+        .header {
+          margin-bottom: 20px;
+        }
+        .header p {
+          margin: 5px 0;
+          font-weight: 400;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+          margin-top: 16px;
+          border: 1px solid #e5e7eb;
+        }
+        th, td {
+          border: 1px solid #e5e7eb;
+          padding: 10px;
+          text-align: left;
+        }
+        th {
+          background-color: #f9fafb;
+          font-weight: 500;
+        }
+        .totals {
+          width: 280px;
+          float: right;
+          margin-top: 20px;
+          font-size: 13px;
+          border: 1px solid #e5e7eb;
+        }
+        .totals tr {
+          border-bottom: 1px solid #eee;
+        }
+        .totals td {
+          padding: 8px 10px;
+        }
+        .totals td:last-child {
+          text-align: right;
+        }
+        .payments {
+          margin-top: 30px;
+          font-size: 13px;
+        }
+        .payments ul {
+          padding-left: 18px;
+          margin-top: 6px;
+        }
+        .footer {
+          font-size: 11px;
+          margin-top: 60px;
+          display: flex;
+          justify-content: space-between;
+          color: #6b7280;
+          border-top: 1px solid #d1d5db;
+          padding-top: 16px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>${voucher.type || "Comprobante"}</h1>
 
-        <div class="header">
-          <p><strong>N°:</strong> ${voucher.number}</p>
-          <p><strong>Fecha:</strong> ${date}</p>
-          <p><strong>Cliente:</strong> ${voucher.contactName || "Cliente N/D"}</p>
-        </div>
+      <div class="header">
+        ${headerHtml}
+      </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Descripción</th>
-              <th>Cantidad</th>
-              <th>Precio</th>
-              <th>Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${products}
-          </tbody>
-        </table>
+      <table>
+        <thead>
+          <tr>
+            <th>Descripción</th>
+            <th>Cantidad</th>
+            <th>Precio</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productsHtml}
+        </tbody>
+      </table>
 
-        <table class="totals">
-          <tr><td><strong>Subtotal:</strong></td><td>$${subtotal.toFixed(2)}</td></tr>
-          <tr><td><strong>Total:</strong></td><td>$${total.toFixed(2)}</td></tr>
-          <tr><td><strong>Pagado:</strong></td><td>$${paid.toFixed(2)}</td></tr>
-          <tr><td><strong>Saldo:</strong></td><td style="color:#dc2626;"><strong>$${remaining.toFixed(2)}</strong></td></tr>
-        </table>
+      <table class="totals">
+        <tr><td><strong>Subtotal:</strong></td><td>$${subtotal.toFixed(2)}</td></tr>
+        <tr><td><strong>Total:</strong></td><td>$${total.toFixed(2)}</td></tr>
+        <tr><td><strong>Pagado:</strong></td><td>$${paid.toFixed(2)}</td></tr>
+        <tr><td><strong>Saldo:</strong></td><td style="color:#dc2626;"><strong>$${remaining.toFixed(2)}</strong></td></tr>
+      </table>
 
-        ${voucher.payments.length > 0
+      ${voucher.payments.length > 0
             ? `<div class="payments">
-                <strong>Pagos recibidos:</strong>
-                <ul>${payments}</ul>
-              </div>`
+              <strong>Pagos recibidos:</strong>
+              <ul>${paymentsHtml}</ul>
+            </div>`
             : ""}
 
-        <div class="footer">
-          <div>
-            <strong>Contacto</strong><br />
-            (555) 1234 - 5678<br />
-            hello@business.com<br />
-            www.sitioweb.com
-          </div>
-          <div>
-            <strong>Datos para pago</strong><br />
-            Banco: Banco<br />
-            CBU/CVU: 0000 1234 5678<br />
-            Alias: empresa.alias<br />
-            Fecha estimada: ${date}
-          </div>
-        </div>
-      </body>
-    </html>
+      
+    </body>
+  </html>
   `;
     }
     async generateVoucherHtml(voucherId) {
@@ -572,6 +588,49 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         return {
             number: `${prefix}-${paddedNumber}`,
         };
+    }
+    async deleteVoucher(deleteVoucherDto) {
+        const { id, typeOfDelete } = deleteVoucherDto;
+        const voucher = await this.eVoucher.findUnique({
+            where: { id },
+            select: {
+                type: true,
+                emissionBranchId: true,
+                destinationBranchId: true,
+                products: true,
+                payments: true,
+            },
+        });
+        if (typeOfDelete === "SOFT") {
+            await this.eVoucher.delete({
+                where: { id },
+            });
+            return {
+                message: "Voucher deleted successfully",
+            };
+        }
+        else {
+            if (voucher?.type === client_1.VoucherType.REMITO) {
+                voucher?.products.map(async (product) => {
+                    const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                        branchId: product.branchId,
+                        productId: product.productId,
+                        stock: product.quantity,
+                    }));
+                    const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                        branchId: voucher.destinationBranchId,
+                        productId: product.productId,
+                        stock: product.quantity,
+                    }));
+                });
+                await this.eVoucher.delete({
+                    where: { id },
+                });
+                return {
+                    message: "Voucher deleted successfully",
+                };
+            }
+        }
     }
 };
 exports.VouchersService = VouchersService;

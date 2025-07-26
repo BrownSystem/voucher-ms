@@ -24,6 +24,7 @@ class CreateVoucherDto {
     emissionBranchId;
     emissionBranchName;
     destinationBranchId;
+    destinationBranchName;
     contactId;
     contactName;
     conditionPayment;
@@ -81,6 +82,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateVoucherDto.prototype, "destinationBranchId", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((o) => o.type === "REMITO"),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateVoucherDto.prototype, "destinationBranchName", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),

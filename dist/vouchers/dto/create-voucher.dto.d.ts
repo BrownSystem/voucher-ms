@@ -10,6 +10,7 @@ export declare class CreateVoucherDto {
     emissionBranchId: string;
     emissionBranchName: string;
     destinationBranchId: string;
+    destinationBranchName: string;
     contactId?: string;
     contactName?: string;
     conditionPayment?: ConditionPayment;

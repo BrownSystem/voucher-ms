@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaginationDto = void 0;
+const client_1 = require("@prisma/client");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const enum_1 = require("../../enum");
@@ -19,6 +20,7 @@ class PaginationDto {
     limit;
     offset;
     search;
+    type;
     constructor(partial = {}) {
         Object.assign(this, partial);
         this.limit = partial?.limit || 10;
@@ -53,4 +55,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], PaginationDto.prototype, "search", void 0);
+__decorate([
+    (0, class_validator_1.IsEnum)(client_1.VoucherType),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], PaginationDto.prototype, "type", void 0);
 //# sourceMappingURL=pagination.dto.js.map

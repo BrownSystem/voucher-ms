@@ -54,6 +54,10 @@ export class CreateVoucherDto {
   @IsString()
   destinationBranchId: string;
 
+  @ValidateIf((o) => o.type === "REMITO")
+  @IsString()
+  destinationBranchName: string;
+
   @IsString()
   @IsOptional()
   contactId?: string;

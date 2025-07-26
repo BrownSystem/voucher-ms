@@ -1,3 +1,4 @@
+import { VoucherType } from "@prisma/client";
 import { Type } from "class-transformer";
 import { IsEnum, IsOptional, IsPositive, IsString } from "class-validator";
 import { ConditionPayment } from "src/enum";
@@ -24,6 +25,10 @@ export class PaginationDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsEnum(VoucherType)
+  @IsOptional()
+  type?: VoucherType;
 
   constructor(partial: Partial<PaginationDto> = {}) {
     Object.assign(this, partial);

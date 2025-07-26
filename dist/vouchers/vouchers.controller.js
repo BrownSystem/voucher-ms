@@ -20,6 +20,7 @@ const create_voucher_dto_1 = require("./dto/create-voucher.dto");
 const pagination_dto_1 = require("./dto/pagination.dto");
 const create_payment_dto_1 = require("./dto/create-payment.dto");
 const generate_number_dto_1 = require("./dto/generate-number.dto");
+const delete_voucher_dto_1 = require("./dto/delete-voucher.dto");
 let VouchersController = class VouchersController {
     vouchersService;
     constructor(vouchersService) {
@@ -45,6 +46,9 @@ let VouchersController = class VouchersController {
     }
     update({ id, data }) {
         return this.vouchersService.updateReservedProduct(id, data);
+    }
+    delete(deleteVoucherDto) {
+        return this.vouchersService.deleteVoucher(deleteVoucherDto);
     }
 };
 exports.VouchersController = VouchersController;
@@ -97,6 +101,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "update", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: "type_delete" }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [delete_voucher_dto_1.DeleteVoucherDto]),
+    __metadata("design:returntype", void 0)
+], VouchersController.prototype, "delete", null);
 exports.VouchersController = VouchersController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [vouchers_service_1.VouchersService])

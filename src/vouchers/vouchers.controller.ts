@@ -6,6 +6,7 @@ import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
+import { DeleteVoucherDto } from "./dto/delete-voucher.dto";
 @Controller()
 export class VouchersController {
   constructor(private readonly vouchersService: VouchersService) {}
@@ -47,5 +48,10 @@ export class VouchersController {
     @Payload() { id, data }: { id: string; data: UpdateVoucherProductItemDto }
   ) {
     return this.vouchersService.updateReservedProduct(id, data);
+  }
+
+  @MessagePattern({ cmd: "type_delete" })
+  delete(@Payload() deleteVoucherDto: DeleteVoucherDto) {
+    return this.vouchersService.deleteVoucher(deleteVoucherDto);
   }
 }
