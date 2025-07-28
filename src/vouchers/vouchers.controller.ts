@@ -54,4 +54,9 @@ export class VouchersController {
   delete(@Payload() deleteVoucherDto: DeleteVoucherDto) {
     return this.vouchersService.deleteVoucher(deleteVoucherDto);
   }
+
+  @MessagePattern({ cmd: "delete" })
+  deleteAll() {
+    return this.vouchersService.deleteVoucherAll();
+  }
 }

@@ -116,6 +116,19 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
             );
           });
         }
+      } else if (createVoucherDto.type === "FACTURA") {
+        enrichedProducts.map(async (p) => {
+          const increaseBranchProducts = await firstValueFrom(
+            this.client.send(
+              { cmd: "increase_branch_product_stock" },
+              {
+                branchId: createVoucherDto.emissionBranchId,
+                productId: p.productId,
+                stock: p.quantity,
+              }
+            )
+          );
+        });
       } else {
         enrichedProducts.map(async (p) => {
           const decreaseBranchProducts = await firstValueFrom(
@@ -768,5 +781,10 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         };
       }
     }
+  }
+
+  async deleteVoucherAll() {
+    const voucher = await this.eVoucher.deleteMany();
+    return "Succefully";
   }
 }
