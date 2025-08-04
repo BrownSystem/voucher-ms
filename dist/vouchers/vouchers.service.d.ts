@@ -13,6 +13,7 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
     private _normalizeText;
     onModuleInit(): void;
     constructor(client: ClientProxy);
+    private handleStockChanges;
     create(createVoucherDto: CreateVoucherDto): Promise<{
         status: HttpStatus;
         message: string;
@@ -223,4 +224,5 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
     deleteVoucher(deleteVoucherDto: DeleteVoucherDto): Promise<{
         message: string;
     } | undefined>;
+    deleteVoucherAll(): Promise<string>;
 }

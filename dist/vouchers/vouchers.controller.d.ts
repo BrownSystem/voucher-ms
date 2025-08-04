@@ -220,4 +220,5 @@ export declare class VouchersController {
     delete(deleteVoucherDto: DeleteVoucherDto): Promise<{
         message: string;
     } | undefined>;
+    deleteAll(): Promise<string>;
 }

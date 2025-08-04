@@ -16,7 +16,8 @@ datasource db {
 enum VoucherType {
   FACTURA
   REMITO
-  NOTA_CREDITO
+  NOTA_CREDITO_PROVEEDOR
+  NOTA_CREDITO_CLIENTE
   P
 }
 

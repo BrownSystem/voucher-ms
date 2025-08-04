@@ -37,14 +37,71 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         super();
         this.client = client;
     }
+    async handleStockChanges(type, enrichedProducts, emissionBranchId, destinationBranchId) {
+        const tasks = [];
+        for (const product of enrichedProducts) {
+            const { productId, branchId, quantity } = product;
+            switch (type) {
+                case "REMITO":
+                    if (emissionBranchId === destinationBranchId) {
+                        tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                            branchId,
+                            productId,
+                            stock: quantity,
+                        })));
+                    }
+                    else {
+                        tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                            branchId,
+                            productId,
+                            stock: quantity,
+                        })));
+                        tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                            branchId: destinationBranchId,
+                            productId,
+                            stock: quantity,
+                        })));
+                    }
+                    break;
+                case "FACTURA":
+                    tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                        branchId: emissionBranchId,
+                        productId,
+                        stock: quantity,
+                    })));
+                    break;
+                case "NOTA_CREDITO_CLIENTE":
+                    tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                        branchId: emissionBranchId,
+                        productId,
+                        stock: quantity,
+                    })));
+                    break;
+                case "NOTA_CREDITO_PROVEEDOR":
+                    tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                        branchId: emissionBranchId,
+                        productId,
+                        stock: quantity,
+                    })));
+                    break;
+                default:
+                    tasks.push((0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                        branchId,
+                        productId,
+                        stock: quantity,
+                    })));
+                    break;
+            }
+        }
+        await Promise.all(tasks);
+    }
     async create(createVoucherDto) {
         try {
             const { products, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, destinationBranchId, destinationBranchName, ...voucherData } = createVoucherDto;
-            if (products.some((p) => p.quantity <= 0 ||
-                (p.price <= 0 && createVoucherDto.type !== "REMITO"))) {
+            if (products.some((p) => p.quantity <= 0)) {
                 return {
                     status: common_1.HttpStatus.BAD_REQUEST,
-                    message: "[CREATE_VOUCHER] Cada producto debe tener cantidad y precio válidos.",
+                    message: "[CREATE_VOUCHER] Cada producto debe tener cantidad",
                 };
             }
             const enrichedProducts = products.map((p) => ({
@@ -56,64 +113,21 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 price: p.price,
                 subtotal: p.quantity * p.price,
             }));
-            if (createVoucherDto.type === "REMITO") {
-                if (createVoucherDto.emissionBranchId ===
-                    createVoucherDto.destinationBranchId) {
-                    enrichedProducts.map(async (p) => {
-                        const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
-                            branchId: p.branchId,
-                            productId: p.productId,
-                            stock: p.quantity,
-                        }));
-                    });
-                }
-                else {
-                    enrichedProducts.map(async (p) => {
-                        const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
-                            branchId: p.branchId,
-                            productId: p.productId,
-                            stock: p.quantity,
-                        }));
-                        const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
-                            branchId: destinationBranchId,
-                            productId: p.productId,
-                            stock: p.quantity,
-                        }));
-                    });
-                }
-            }
-            else {
-                enrichedProducts.map(async (p) => {
-                    const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
-                        branchId: p.branchId,
-                        productId: p.productId,
-                        stock: p.quantity,
-                    }));
-                });
-            }
+            await this.handleStockChanges(createVoucherDto.type, enrichedProducts, createVoucherDto.emissionBranchId, destinationBranchId);
             const totalAmount = enrichedProducts.reduce((sum, p) => sum + p.subtotal, 0);
-            if (totalAmount <= 0 && createVoucherDto.type !== "REMITO") {
-                return {
-                    status: common_1.HttpStatus.BAD_REQUEST,
-                    message: "[CREATE_VOUCHER] El total debe ser mayor a cero.",
-                };
-            }
             const initialPaidTotal = Array.isArray(initialPayment)
                 ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
                 : 0;
             const remainingAmount = totalAmount - initialPaidTotal;
             let resolvedNumber = createVoucherDto.number;
             if (createVoucherDto.type === "REMITO") {
-                const lastRemito = await this.eVoucher.findMany({
+                const lastRemito = await this.eVoucher.findFirst({
                     where: { type: "REMITO" },
                     orderBy: { emissionDate: "desc" },
-                    take: 1,
                     select: { number: true },
                 });
-                const lastRaw = lastRemito[0]?.number ?? "R-00000";
-                const lastNumeric = parseInt(lastRaw.split("-")[1] || "0", 10);
-                const next = lastNumeric + 1;
-                resolvedNumber = `R-${next.toString().padStart(5, "0")}`;
+                const lastNumber = parseInt(lastRemito?.number?.split("-")[1] || "0", 10);
+                resolvedNumber = `R-${(lastNumber + 1).toString().padStart(5, "0")}`;
             }
             const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
             const result = await this.$transaction(async (tx) => {
@@ -133,12 +147,8 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                         deliveredBy,
                     },
                 });
-                const productsWithVoucherId = enrichedProducts.map((p) => ({
-                    ...p,
-                    voucherId: voucher.id,
-                }));
                 await tx.eVoucherProduct.createMany({
-                    data: productsWithVoucherId,
+                    data: enrichedProducts.map((p) => ({ ...p, voucherId: voucher.id })),
                 });
                 if (Array.isArray(initialPayment)) {
                     for (const payment of initialPayment) {
@@ -151,10 +161,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                             }
                         }
                         await tx.ePayment.create({
-                            data: {
-                                ...payment,
-                                voucherId: voucher.id,
-                            },
+                            data: { ...payment, voucherId: voucher.id },
                         });
                     }
                 }
@@ -400,12 +407,12 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 pushIfExists("Sucursal Destino", voucher.destinationBranchName);
                 break;
             case "FACTURA":
-            case "NOTA_CREDITO":
+            case "NOTA_CREDITO_PROVEEDOR":
                 pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
                 pushIfExists("ID Sucursal Emisión", voucher.emissionBranchId);
                 pushIfExists("Condición de Pago", voucher.conditionPayment);
                 pushIfExists("Moneda", voucher.currency);
-                if (voucher.type === "NOTA_CREDITO") {
+                if (voucher.type === "NOTA_CREDITO_PROVEEDOR") {
                     pushIfExists("Observación", voucher.observation);
                 }
                 break;
@@ -631,6 +638,10 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 };
             }
         }
+    }
+    async deleteVoucherAll() {
+        const voucher = await this.eVoucher.deleteMany();
+        return "Succefully";
     }
 };
 exports.VouchersService = VouchersService;

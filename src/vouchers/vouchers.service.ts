@@ -34,6 +34,137 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {
     super();
   }
+
+  private async handleStockChanges(
+    type: "REMITO" | "FACTURA" | string,
+    enrichedProducts: {
+      productId: string;
+      branchId: string | undefined;
+      isReserved: boolean;
+      description: string;
+      quantity: number;
+      price: number;
+      subtotal: number;
+    }[],
+    emissionBranchId: string,
+    destinationBranchId: string
+  ): Promise<void> {
+    const tasks: Promise<any>[] = [];
+
+    for (const product of enrichedProducts) {
+      const { productId, branchId, quantity } = product;
+
+      switch (type) {
+        case "REMITO":
+          if (emissionBranchId === destinationBranchId) {
+            // Aumentar stock en la misma sucursal
+            tasks.push(
+              firstValueFrom(
+                this.client.send(
+                  { cmd: "increase_branch_product_stock" },
+                  {
+                    branchId,
+                    productId,
+                    stock: quantity,
+                  }
+                )
+              )
+            );
+          } else {
+            // Transferencia entre sucursales
+            tasks.push(
+              firstValueFrom(
+                this.client.send(
+                  { cmd: "descrease_branch_product_stock" },
+                  {
+                    branchId,
+                    productId,
+                    stock: quantity,
+                  }
+                )
+              )
+            );
+            tasks.push(
+              firstValueFrom(
+                this.client.send(
+                  { cmd: "increase_branch_product_stock" },
+                  {
+                    branchId: destinationBranchId,
+                    productId,
+                    stock: quantity,
+                  }
+                )
+              )
+            );
+          }
+          break;
+
+        case "FACTURA":
+          tasks.push(
+            firstValueFrom(
+              this.client.send(
+                { cmd: "increase_branch_product_stock" },
+                {
+                  branchId: emissionBranchId,
+                  productId,
+                  stock: quantity,
+                }
+              )
+            )
+          );
+          break;
+
+        case "NOTA_CREDITO_CLIENTE":
+          tasks.push(
+            firstValueFrom(
+              this.client.send(
+                { cmd: "increase_branch_product_stock" },
+                {
+                  branchId: emissionBranchId,
+                  productId,
+                  stock: quantity,
+                }
+              )
+            )
+          );
+          break;
+
+        case "NOTA_CREDITO_PROVEEDOR":
+          tasks.push(
+            firstValueFrom(
+              this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId: emissionBranchId,
+                  productId,
+                  stock: quantity,
+                }
+              )
+            )
+          );
+          break;
+
+        default:
+          // Otros comprobantes: disminuir stock
+          tasks.push(
+            firstValueFrom(
+              this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId,
+                  productId,
+                  stock: quantity,
+                }
+              )
+            )
+          );
+          break;
+      }
+    }
+
+    await Promise.all(tasks);
+  }
+
   async create(createVoucherDto: CreateVoucherDto) {
     try {
       const {
@@ -49,22 +180,15 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         ...voucherData
       } = createVoucherDto;
 
-      // 1. Validación de productos
-      if (
-        products.some(
-          (p) =>
-            p.quantity <= 0 ||
-            (p.price <= 0 && createVoucherDto.type !== "REMITO")
-        )
-      ) {
+      // 1. Validar productos
+      if (products.some((p) => p.quantity <= 0)) {
         return {
           status: HttpStatus.BAD_REQUEST,
-          message:
-            "[CREATE_VOUCHER] Cada producto debe tener cantidad y precio válidos.",
+          message: "[CREATE_VOUCHER] Cada producto debe tener cantidad",
         };
       }
 
-      // 2. Calcular subtotales y total
+      // 2. Enriquecer productos
       const enrichedProducts = products.map((p) => ({
         productId: p.productId,
         branchId: p.branchId,
@@ -75,114 +199,45 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         subtotal: p.quantity * p.price,
       }));
 
-      if (createVoucherDto.type === "REMITO") {
-        if (
-          createVoucherDto.emissionBranchId ===
-          createVoucherDto.destinationBranchId
-        ) {
-          enrichedProducts.map(async (p) => {
-            const increaseBranchProducts = await firstValueFrom(
-              this.client.send(
-                { cmd: "increase_branch_product_stock" },
-                {
-                  branchId: p.branchId,
-                  productId: p.productId,
-                  stock: p.quantity,
-                }
-              )
-            );
-          });
-        } else {
-          enrichedProducts.map(async (p) => {
-            const decreaseBranchProducts = await firstValueFrom(
-              this.client.send(
-                { cmd: "descrease_branch_product_stock" },
-                {
-                  branchId: p.branchId,
-                  productId: p.productId,
-                  stock: p.quantity,
-                }
-              )
-            );
-            const increaseBranchProducts = await firstValueFrom(
-              this.client.send(
-                { cmd: "increase_branch_product_stock" },
-                {
-                  branchId: destinationBranchId,
-                  productId: p.productId,
-                  stock: p.quantity,
-                }
-              )
-            );
-          });
-        }
-      } else if (createVoucherDto.type === "FACTURA") {
-        enrichedProducts.map(async (p) => {
-          const increaseBranchProducts = await firstValueFrom(
-            this.client.send(
-              { cmd: "increase_branch_product_stock" },
-              {
-                branchId: createVoucherDto.emissionBranchId,
-                productId: p.productId,
-                stock: p.quantity,
-              }
-            )
-          );
-        });
-      } else {
-        enrichedProducts.map(async (p) => {
-          const decreaseBranchProducts = await firstValueFrom(
-            this.client.send(
-              { cmd: "descrease_branch_product_stock" },
-              {
-                branchId: p.branchId,
-                productId: p.productId,
-                stock: p.quantity,
-              }
-            )
-          );
-        });
-      }
+      // 3. Manejo de stock
+      await this.handleStockChanges(
+        createVoucherDto.type,
+        enrichedProducts,
+        createVoucherDto.emissionBranchId,
+        destinationBranchId
+      );
 
+      // 4. Calcular totales
       const totalAmount = enrichedProducts.reduce(
         (sum, p) => sum + p.subtotal,
         0
       );
 
-      if (totalAmount <= 0 && createVoucherDto.type !== "REMITO") {
-        return {
-          status: HttpStatus.BAD_REQUEST,
-          message: "[CREATE_VOUCHER] El total debe ser mayor a cero.",
-        };
-      }
-
-      // 3. Calcular pagos iniciales
       const initialPaidTotal = Array.isArray(initialPayment)
         ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
         : 0;
 
       const remainingAmount = totalAmount - initialPaidTotal;
 
-      // 4. Generar número si es REMITO
+      // 5. Generar número para remito
       let resolvedNumber = createVoucherDto.number;
-
       if (createVoucherDto.type === "REMITO") {
-        const lastRemito = await this.eVoucher.findMany({
+        const lastRemito = await this.eVoucher.findFirst({
           where: { type: "REMITO" },
           orderBy: { emissionDate: "desc" },
-          take: 1,
           select: { number: true },
         });
 
-        const lastRaw = lastRemito[0]?.number ?? "R-00000";
-        const lastNumeric = parseInt(lastRaw.split("-")[1] || "0", 10);
-        const next = lastNumeric + 1;
-        resolvedNumber = `R-${next.toString().padStart(5, "0")}`;
+        const lastNumber = parseInt(
+          lastRemito?.number?.split("-")[1] || "0",
+          10
+        );
+        resolvedNumber = `R-${(lastNumber + 1).toString().padStart(5, "0")}`;
       }
 
       const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
 
-      // 5. Transacción atómica: comprobante, productos y pagos
+      // 6. Transacción atómica
       const result = await this.$transaction(async (tx) => {
         const voucher = await tx.eVoucher.create({
           data: {
@@ -201,13 +256,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
           },
         });
 
-        const productsWithVoucherId = enrichedProducts.map((p) => ({
-          ...p,
-          voucherId: voucher.id,
-        }));
-
         await tx.eVoucherProduct.createMany({
-          data: productsWithVoucherId,
+          data: enrichedProducts.map((p) => ({ ...p, voucherId: voucher.id })),
         });
 
         if (Array.isArray(initialPayment)) {
@@ -216,7 +266,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               const bank = await tx.eBank.findUnique({
                 where: { id: payment.bankId },
               });
-
               if (!bank) {
                 throw new Error(
                   `[CREATE_PAYMENT] El banco ${payment.bankId} no existe.`
@@ -225,10 +274,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
             }
 
             await tx.ePayment.create({
-              data: {
-                ...payment,
-                voucherId: voucher.id,
-              },
+              data: { ...payment, voucherId: voucher.id },
             });
           }
         }
@@ -513,12 +559,12 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         pushIfExists("Sucursal Destino", voucher.destinationBranchName);
         break;
       case "FACTURA":
-      case "NOTA_CREDITO":
+      case "NOTA_CREDITO_PROVEEDOR":
         pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
         pushIfExists("ID Sucursal Emisión", voucher.emissionBranchId);
         pushIfExists("Condición de Pago", voucher.conditionPayment);
         pushIfExists("Moneda", voucher.currency);
-        if (voucher.type === "NOTA_CREDITO") {
+        if (voucher.type === "NOTA_CREDITO_PROVEEDOR") {
           pushIfExists("Observación", voucher.observation);
         }
         break;

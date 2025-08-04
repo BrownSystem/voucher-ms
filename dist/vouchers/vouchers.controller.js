@@ -50,6 +50,9 @@ let VouchersController = class VouchersController {
     delete(deleteVoucherDto) {
         return this.vouchersService.deleteVoucher(deleteVoucherDto);
     }
+    deleteAll() {
+        return this.vouchersService.deleteVoucherAll();
+    }
 };
 exports.VouchersController = VouchersController;
 __decorate([
@@ -108,6 +111,12 @@ __decorate([
     __metadata("design:paramtypes", [delete_voucher_dto_1.DeleteVoucherDto]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "delete", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: "delete" }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], VouchersController.prototype, "deleteAll", null);
 exports.VouchersController = VouchersController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [vouchers_service_1.VouchersService])
