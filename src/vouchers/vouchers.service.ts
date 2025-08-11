@@ -788,43 +788,87 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         destinationBranchId: true,
         products: true,
         payments: true,
+        available: true,
       },
     });
 
     if (typeOfDelete === "SOFT") {
-      await this.eVoucher.delete({
+      await this.eVoucher.update({
         where: { id },
+        data: {
+          available: false,
+        },
       });
       return {
         message: "Voucher deleted successfully",
       };
     } else {
-      if (voucher?.type === VoucherType.REMITO) {
+      if (voucher?.type === VoucherType.P) {
         voucher?.products.map(async (product) => {
           const increaseBranchProducts = await firstValueFrom(
             this.client.send(
               { cmd: "increase_branch_product_stock" },
               {
-                branchId: product.branchId,
-                productId: product.productId,
-                stock: product.quantity,
-              }
-            )
-          );
-          const decreaseBranchProducts = await firstValueFrom(
-            this.client.send(
-              { cmd: "descrease_branch_product_stock" },
-              {
-                branchId: voucher.destinationBranchId,
+                branchId: voucher.emissionBranchId,
                 productId: product.productId,
                 stock: product.quantity,
               }
             )
           );
         });
+
         await this.eVoucher.delete({
           where: { id },
         });
+      }
+
+      if (voucher?.type === VoucherType.REMITO) {
+        if (voucher.emissionBranchId === voucher.destinationBranchId) {
+          voucher?.products.map(async (product) => {
+            const decreaseBranchProducts = await firstValueFrom(
+              this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId: voucher.emissionBranchId,
+                  productId: product.productId,
+                  stock: product.quantity,
+                }
+              )
+            );
+          });
+
+          await this.eVoucher.delete({
+            where: { id },
+          });
+        } else {
+          voucher?.products.map(async (product) => {
+            const increaseBranchProducts = await firstValueFrom(
+              this.client.send(
+                { cmd: "increase_branch_product_stock" },
+                {
+                  branchId: product.branchId,
+                  productId: product.productId,
+                  stock: product.quantity,
+                }
+              )
+            );
+            const decreaseBranchProducts = await firstValueFrom(
+              this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId: voucher.destinationBranchId,
+                  productId: product.productId,
+                  stock: product.quantity,
+                }
+              )
+            );
+          });
+
+          await this.eVoucher.delete({
+            where: { id },
+          });
+        }
+
         return {
           message: "Voucher deleted successfully",
         };

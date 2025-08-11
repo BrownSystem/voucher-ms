@@ -401,10 +401,12 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
         switch (voucher.type) {
             case "P":
                 pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
+                pushIfExists("Observación", voucher.observation);
                 break;
             case "REMITO":
                 pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
                 pushIfExists("Sucursal Destino", voucher.destinationBranchName);
+                pushIfExists("Observación", voucher.observation);
                 break;
             case "FACTURA":
             case "NOTA_CREDITO_PROVEEDOR":
@@ -412,9 +414,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 pushIfExists("ID Sucursal Emisión", voucher.emissionBranchId);
                 pushIfExists("Condición de Pago", voucher.conditionPayment);
                 pushIfExists("Moneda", voucher.currency);
-                if (voucher.type === "NOTA_CREDITO_PROVEEDOR") {
-                    pushIfExists("Observación", voucher.observation);
-                }
+                pushIfExists("Observación", voucher.observation);
                 break;
         }
         const headerHtml = headerFields.join("\n");
@@ -606,26 +606,25 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 destinationBranchId: true,
                 products: true,
                 payments: true,
+                available: true,
             },
         });
         if (typeOfDelete === "SOFT") {
-            await this.eVoucher.delete({
+            await this.eVoucher.update({
                 where: { id },
+                data: {
+                    available: false,
+                },
             });
             return {
                 message: "Voucher deleted successfully",
             };
         }
         else {
-            if (voucher?.type === client_1.VoucherType.REMITO) {
+            if (voucher?.type === client_1.VoucherType.P) {
                 voucher?.products.map(async (product) => {
                     const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
-                        branchId: product.branchId,
-                        productId: product.productId,
-                        stock: product.quantity,
-                    }));
-                    const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
-                        branchId: voucher.destinationBranchId,
+                        branchId: voucher.emissionBranchId,
                         productId: product.productId,
                         stock: product.quantity,
                     }));
@@ -633,6 +632,37 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 await this.eVoucher.delete({
                     where: { id },
                 });
+            }
+            if (voucher?.type === client_1.VoucherType.REMITO) {
+                if (voucher.emissionBranchId === voucher.destinationBranchId) {
+                    voucher?.products.map(async (product) => {
+                        const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                            branchId: voucher.emissionBranchId,
+                            productId: product.productId,
+                            stock: product.quantity,
+                        }));
+                    });
+                    await this.eVoucher.delete({
+                        where: { id },
+                    });
+                }
+                else {
+                    voucher?.products.map(async (product) => {
+                        const increaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "increase_branch_product_stock" }, {
+                            branchId: product.branchId,
+                            productId: product.productId,
+                            stock: product.quantity,
+                        }));
+                        const decreaseBranchProducts = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "descrease_branch_product_stock" }, {
+                            branchId: voucher.destinationBranchId,
+                            productId: product.productId,
+                            stock: product.quantity,
+                        }));
+                    });
+                    await this.eVoucher.delete({
+                        where: { id },
+                    });
+                }
                 return {
                     message: "Voucher deleted successfully",
                 };
