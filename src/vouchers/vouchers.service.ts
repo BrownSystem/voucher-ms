@@ -553,10 +553,14 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     switch (voucher.type) {
       case "P":
         pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
+        pushIfExists("Observación", voucher.observation);
+
         break;
       case "REMITO":
         pushIfExists("Sucursal Emisión", voucher.emissionBranchName);
         pushIfExists("Sucursal Destino", voucher.destinationBranchName);
+        pushIfExists("Observación", voucher.observation);
+
         break;
       case "FACTURA":
       case "NOTA_CREDITO_PROVEEDOR":
@@ -564,9 +568,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         pushIfExists("ID Sucursal Emisión", voucher.emissionBranchId);
         pushIfExists("Condición de Pago", voucher.conditionPayment);
         pushIfExists("Moneda", voucher.currency);
-        if (voucher.type === "NOTA_CREDITO_PROVEEDOR") {
-          pushIfExists("Observación", voucher.observation);
-        }
+        pushIfExists("Observación", voucher.observation);
+
         break;
     }
 
