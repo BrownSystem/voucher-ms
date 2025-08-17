@@ -169,6 +169,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     try {
       const {
         products,
+        type,
+        emissionBranchId,
         paidAmount = 0,
         available = true,
         createdBy,
@@ -199,6 +201,13 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         subtotal: p.quantity * p.price,
       }));
 
+      const number = await firstValueFrom(
+        this.client.send(
+          { cmd: "generate_number_voucher" },
+          { type, emissionBranchId }
+        )
+      );
+
       // 3. Manejo de stock
       await this.handleStockChanges(
         createVoucherDto.type,
@@ -219,22 +228,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
       const remainingAmount = totalAmount - initialPaidTotal;
 
-      // 5. Generar número para remito
-      let resolvedNumber = createVoucherDto.number;
-      if (createVoucherDto.type === "REMITO") {
-        const lastRemito = await this.eVoucher.findFirst({
-          where: { type: "REMITO" },
-          orderBy: { emissionDate: "desc" },
-          select: { number: true },
-        });
-
-        const lastNumber = parseInt(
-          lastRemito?.number?.split("-")[1] || "0",
-          10
-        );
-        resolvedNumber = `R-${(lastNumber + 1).toString().padStart(5, "0")}`;
-      }
-
       const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
 
       // 6. Transacción atómica
@@ -244,10 +237,12 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
             ...voucherData,
             destinationBranchId,
             destinationBranchName,
-            number: resolvedNumber,
+            number,
+            emissionBranchId,
             status: resolvedStatus,
             totalAmount,
             paidAmount,
+            type,
             remainingAmount,
             available,
             createdBy,
@@ -349,6 +344,10 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         include: {
           products: true,
           payments: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+          number: "desc",
         },
       });
 

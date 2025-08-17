@@ -21,11 +21,6 @@ import { VoucherProductItemDto } from "./voucher-product-item.dto";
 import { CreateInitialPaymentDto } from "./initial-payment.dto";
 
 export class CreateVoucherDto {
-  @ValidateIf((o) => o.type !== "REMITO")
-  @IsString()
-  @IsOptional()
-  number: string;
-
   @IsString()
   @IsOptional()
   letter?: string;
