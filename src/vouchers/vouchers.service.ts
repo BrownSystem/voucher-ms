@@ -201,7 +201,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         subtotal: p.quantity * p.price,
       }));
 
-      const number = await firstValueFrom(
+      const nextNumber = await firstValueFrom(
         this.client.send(
           { cmd: "generate_number_voucher" },
           { type, emissionBranchId }
@@ -237,7 +237,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
             ...voucherData,
             destinationBranchId,
             destinationBranchName,
-            number,
+            number: nextNumber?.number,
             emissionBranchId,
             status: resolvedStatus,
             totalAmount,
