@@ -345,10 +345,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
           products: true,
           payments: true,
         },
-        orderBy: {
-          createdAt: "desc",
-          number: "desc",
-        },
+        orderBy: [{ createdAt: "desc" }, { number: "desc" }],
       });
 
       const total = await this.eVoucher.count({
