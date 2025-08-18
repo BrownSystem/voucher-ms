@@ -97,7 +97,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     }
     async create(createVoucherDto) {
         try {
-            const { products, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, destinationBranchId, destinationBranchName, ...voucherData } = createVoucherDto;
+            const { products, type, emissionBranchId, paidAmount = 0, available = true, createdBy, emittedBy, deliveredBy, initialPayment, destinationBranchId, destinationBranchName, ...voucherData } = createVoucherDto;
             if (products.some((p) => p.quantity <= 0)) {
                 return {
                     status: common_1.HttpStatus.BAD_REQUEST,
@@ -113,22 +113,13 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 price: p.price,
                 subtotal: p.quantity * p.price,
             }));
+            const nextNumber = await (0, rxjs_1.firstValueFrom)(this.client.send({ cmd: "generate_number_voucher" }, { type, emissionBranchId }));
             await this.handleStockChanges(createVoucherDto.type, enrichedProducts, createVoucherDto.emissionBranchId, destinationBranchId);
             const totalAmount = enrichedProducts.reduce((sum, p) => sum + p.subtotal, 0);
             const initialPaidTotal = Array.isArray(initialPayment)
                 ? initialPayment.reduce((sum, p) => sum + (p.amount ?? 0), 0)
                 : 0;
             const remainingAmount = totalAmount - initialPaidTotal;
-            let resolvedNumber = createVoucherDto.number;
-            if (createVoucherDto.type === "REMITO") {
-                const lastRemito = await this.eVoucher.findFirst({
-                    where: { type: "REMITO" },
-                    orderBy: { emissionDate: "desc" },
-                    select: { number: true },
-                });
-                const lastNumber = parseInt(lastRemito?.number?.split("-")[1] || "0", 10);
-                resolvedNumber = `R-${(lastNumber + 1).toString().padStart(5, "0")}`;
-            }
             const resolvedStatus = remainingAmount <= 0 ? "PAGADO" : "PENDIENTE";
             const result = await this.$transaction(async (tx) => {
                 const voucher = await tx.eVoucher.create({
@@ -136,10 +127,12 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                         ...voucherData,
                         destinationBranchId,
                         destinationBranchName,
-                        number: resolvedNumber,
+                        number: nextNumber?.number,
+                        emissionBranchId,
                         status: resolvedStatus,
                         totalAmount,
                         paidAmount,
+                        type,
                         remainingAmount,
                         available,
                         createdBy,
@@ -228,6 +221,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                     products: true,
                     payments: true,
                 },
+                orderBy: [{ createdAt: "desc" }, { number: "desc" }],
             });
             const total = await this.eVoucher.count({
                 where: whereClause,

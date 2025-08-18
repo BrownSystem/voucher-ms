@@ -13,4 +13,5 @@ export declare class CreatePaymentDto {
     chequeDueDate?: Date;
     chequeStatus?: string;
     voucherId: string;
+    observation: string;
 }

@@ -110,6 +110,8 @@ model EVoucherProduct {
 
   branchId   String? // ID de la sucursal donde se emitió el voucher
 
+  observation String?
+
   @@index([voucherId, productId])
 }
 

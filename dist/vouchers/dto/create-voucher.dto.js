@@ -16,7 +16,6 @@ const class_validator_1 = require("class-validator");
 const voucher_product_item_dto_1 = require("./voucher-product-item.dto");
 const initial_payment_dto_1 = require("./initial-payment.dto");
 class CreateVoucherDto {
-    number;
     letter;
     type;
     emissionDate;
@@ -41,12 +40,6 @@ class CreateVoucherDto {
     initialPayment;
 }
 exports.CreateVoucherDto = CreateVoucherDto;
-__decorate([
-    (0, class_validator_1.ValidateIf)((o) => o.type !== "REMITO"),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], CreateVoucherDto.prototype, "number", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),

@@ -27,6 +27,7 @@ class CreatePaymentDto {
     chequeDueDate;
     chequeStatus;
     voucherId;
+    observation;
 }
 exports.CreatePaymentDto = CreatePaymentDto;
 __decorate([
@@ -88,4 +89,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePaymentDto.prototype, "voucherId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePaymentDto.prototype, "observation", void 0);
 //# sourceMappingURL=create-payment.dto.js.map
