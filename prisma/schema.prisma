@@ -169,6 +169,8 @@ model EPayment {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  observation String?
+
   @@index([voucherId, method])
   @@index([receivedAt])
 }

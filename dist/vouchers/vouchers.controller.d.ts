@@ -81,6 +81,7 @@ export declare class VouchersController {
                 chequeNumber: string | null;
                 chequeDueDate: Date | null;
                 chequeStatus: string | null;
+                observation: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             }[];
@@ -149,6 +150,7 @@ export declare class VouchersController {
             chequeNumber: string | null;
             chequeDueDate: Date | null;
             chequeStatus: string | null;
+            observation: string | null;
             createdAt: Date;
             updatedAt: Date;
         };

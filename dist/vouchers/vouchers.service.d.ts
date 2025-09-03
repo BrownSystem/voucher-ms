@@ -83,6 +83,7 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
                 chequeNumber: string | null;
                 chequeDueDate: Date | null;
                 chequeStatus: string | null;
+                observation: string | null;
                 createdAt: Date;
                 updatedAt: Date;
             }[];
@@ -151,6 +152,7 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             chequeNumber: string | null;
             chequeDueDate: Date | null;
             chequeStatus: string | null;
+            observation: string | null;
             createdAt: Date;
             updatedAt: Date;
         };
