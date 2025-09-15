@@ -305,13 +305,42 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
   async findAllConditionPayment(pagination: PaginationDto) {
     try {
-      const { limit, offset, conditionPayment, search, type } = pagination;
-      const whereClause: any = {
-        type,
+      const {
+        limit,
+        offset,
         conditionPayment,
+        search,
+        type,
+        emissionBranchId,
+        contactId,
+        branch,
+        dateFrom,
+        dateUntil,
+      } = pagination;
+
+      const whereClause: any = {
         available: true,
       };
 
+      // Filtros directos
+      if (type) whereClause.type = type;
+      if (conditionPayment) whereClause.conditionPayment = conditionPayment;
+      if (emissionBranchId) whereClause.emissionBranchId = emissionBranchId;
+      if (contactId) whereClause.contactId = contactId;
+      if (branch)
+        whereClause.emissionBranchName = {
+          contains: branch,
+          mode: "insensitive",
+        };
+
+      // Filtro de fechas
+      if (dateFrom || dateUntil) {
+        whereClause.emissionDate = {};
+        if (dateFrom) whereClause.emissionDate.gte = dateFrom;
+        if (dateUntil) whereClause.emissionDate.lte = dateUntil;
+      }
+
+      // Filtro de búsqueda
       if (search) {
         const normalizedSearch = this._normalizeText(search);
 
@@ -337,6 +366,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         ];
       }
 
+      // Query principal
       const vouchers = await this.eVoucher.findMany({
         where: whereClause,
         take: limit,
@@ -348,9 +378,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         orderBy: [{ createdAt: "desc" }, { number: "desc" }],
       });
 
-      const total = await this.eVoucher.count({
-        where: whereClause,
-      });
+      const total = await this.eVoucher.count({ where: whereClause });
 
       return {
         data: vouchers,
@@ -363,7 +391,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     } catch (error) {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: `[FIND_ALL_CREDIT_VOUCHERS] Error al obtener los comprobantes de crédito: ${error.message}`,
+        message: `[FIND_ALL_CREDIT_VOUCHERS] Error fetching vouchers: ${error.message}`,
       };
     }
   }
@@ -388,6 +416,17 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
           return {
             status: HttpStatus.BAD_REQUEST,
             message: `[REGISTER_PAYMENT] El banco indicado no existe.`,
+          };
+        }
+      }
+
+      // Validar existencia del card (si aplica)
+      if (dto.cardId) {
+        const card = await this.eCard.findUnique({ where: { id: dto.cardId } });
+        if (!card) {
+          return {
+            status: HttpStatus.BAD_REQUEST,
+            message: `[REGISTER_PAYMENT] La tarjeta indicada no existe.`,
           };
         }
       }
@@ -495,6 +534,18 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       page: offset,
       lastPage: Math.ceil(total / limit),
     };
+  }
+
+  async findOneVoucher(id: string) {
+    const voucher = await this.eVoucher.findFirst({
+      where: {
+        id,
+        available: true,
+      },
+      include: { products: true, payments: true },
+    });
+
+    return voucher;
   }
 
   async updateReservedProduct(id: string, data: UpdateVoucherProductItemDto) {

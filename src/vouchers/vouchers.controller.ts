@@ -33,6 +33,11 @@ export class VouchersController {
     return this.vouchersService.findAllConditionPayment(pagination);
   }
 
+  @MessagePattern({ cmd: "find_one_voucher" })
+  findOneVoucher(@Payload() { id }: { id: string }) {
+    return this.vouchersService.findOneVoucher(id);
+  }
+
   @MessagePattern({ cmd: "register_payment" })
   registerPayment(@Payload() createPaymentDto: CreatePaymentDto) {
     return this.vouchersService.registerPayment(createPaymentDto);

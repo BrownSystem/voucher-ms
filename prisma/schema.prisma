@@ -47,6 +47,11 @@ enum Currency {
   EUR
 }
 
+enum CardType {
+  DEBIT
+  CREDIT
+}
+
 model EVoucher {
   id                   String   @id @default(uuid())
   number               String   
@@ -143,6 +148,19 @@ model EBank {
   @@index([alias])
 }
 
+model ECard {
+  id String @id @default(uuid())
+  name String
+  cardType   CardType
+  quotas    Int?      // Cantidad de cuotas, si aplica
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  available Boolean   @default(true)
+
+  EPayment EPayment[] @relation("CardPayments")
+}
+
 
 model EPayment {
   id          String       @id @default(uuid())
@@ -160,6 +178,9 @@ model EPayment {
 
   bankId      String?
   bank        EBank?       @relation("BankPayments", fields: [bankId], references: [id])
+
+  cardId      String?
+  ECard ECard[] @relation("CardPayments")
 
   // Cheque info
   chequeNumber      String?
