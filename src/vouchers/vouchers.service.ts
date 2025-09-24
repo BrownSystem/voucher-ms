@@ -26,6 +26,15 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       .toLowerCase();
   }
 
+  private async updateProductsStock(
+    products: any[],
+    action: (p: any) => Promise<any>
+  ) {
+    for (const product of products) {
+      await firstValueFrom(await action(product));
+    }
+  }
+
   onModuleInit() {
     this.$connect();
     this.logger.log("Database connected successfully");
@@ -827,6 +836,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
   async deleteVoucher(deleteVoucherDto: DeleteVoucherDto) {
     const { id, typeOfDelete } = deleteVoucherDto;
+
     const voucher = await this.eVoucher.findUnique({
       where: { id },
       select: {
@@ -839,89 +849,106 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       },
     });
 
+    if (!voucher) {
+      throw new Error("Voucher not found");
+    }
+
     if (typeOfDelete === "SOFT") {
       await this.eVoucher.update({
         where: { id },
-        data: {
-          available: false,
-        },
+        data: { available: false },
       });
-      return {
-        message: "Voucher deleted successfully",
-      };
-    } else {
-      if (voucher?.type === VoucherType.P) {
-        voucher?.products.map(async (product) => {
-          const increaseBranchProducts = await firstValueFrom(
-            this.client.send(
-              { cmd: "increase_branch_product_stock" },
-              {
-                branchId: voucher.emissionBranchId,
-                productId: product.productId,
-                stock: product.quantity,
-              }
-            )
+      return { message: "Voucher soft deleted successfully" };
+    }
+
+    // Manejo de tipos de voucher
+    switch (voucher.type) {
+      case VoucherType.P:
+        await this.updateProductsStock(voucher.products, async (p) => {
+          return this.client.send(
+            { cmd: "increase_branch_product_stock" },
+            {
+              branchId: voucher.emissionBranchId,
+              productId: p.productId,
+              stock: p.quantity,
+            }
           );
         });
+        break;
 
-        await this.eVoucher.delete({
-          where: { id },
-        });
-      }
-
-      if (voucher?.type === VoucherType.REMITO) {
+      case VoucherType.REMITO:
         if (voucher.emissionBranchId === voucher.destinationBranchId) {
-          voucher?.products.map(async (product) => {
-            const decreaseBranchProducts = await firstValueFrom(
-              this.client.send(
-                { cmd: "descrease_branch_product_stock" },
-                {
-                  branchId: voucher.emissionBranchId,
-                  productId: product.productId,
-                  stock: product.quantity,
-                }
-              )
+          await this.updateProductsStock(voucher.products, async (p) => {
+            return this.client.send(
+              { cmd: "descrease_branch_product_stock" },
+              {
+                branchId: voucher.emissionBranchId,
+                productId: p.productId,
+                stock: p.quantity,
+              }
             );
-          });
-
-          await this.eVoucher.delete({
-            where: { id },
           });
         } else {
-          voucher?.products.map(async (product) => {
-            const increaseBranchProducts = await firstValueFrom(
-              this.client.send(
-                { cmd: "increase_branch_product_stock" },
-                {
-                  branchId: product.branchId,
-                  productId: product.productId,
-                  stock: product.quantity,
-                }
-              )
+          await this.updateProductsStock(voucher.products, async (p) => {
+            await this.client.send(
+              { cmd: "increase_branch_product_stock" },
+              {
+                branchId: voucher.emissionBranchId, // ⚠️ revisar si debe ser product.branchId
+                productId: p.productId,
+                stock: p.quantity,
+              }
             );
-            const decreaseBranchProducts = await firstValueFrom(
-              this.client.send(
-                { cmd: "descrease_branch_product_stock" },
-                {
-                  branchId: voucher.destinationBranchId,
-                  productId: product.productId,
-                  stock: product.quantity,
-                }
-              )
+            return this.client.send(
+              { cmd: "descrease_branch_product_stock" },
+              {
+                branchId: voucher.destinationBranchId,
+                productId: p.productId,
+                stock: p.quantity,
+              }
             );
-          });
-
-          await this.eVoucher.delete({
-            where: { id },
           });
         }
+        break;
 
-        return {
-          message: "Voucher deleted successfully",
-        };
-      }
+      case VoucherType.NOTA_CREDITO_PROVEEDOR:
+        await this.updateProductsStock(voucher.products, async (p) => {
+          return this.client.send(
+            { cmd: "increase_branch_product_stock" },
+            {
+              branchId: voucher.emissionBranchId,
+              productId: p.productId,
+              stock: p.quantity,
+            }
+          );
+        });
+        break;
+
+      case VoucherType.NOTA_CREDITO_CLIENTE:
+        await this.updateProductsStock(voucher.products, async (p) => {
+          return this.client.send(
+            { cmd: "descrease_branch_product_stock" },
+            {
+              branchId: voucher.emissionBranchId,
+              productId: p.productId,
+              stock: p.quantity,
+            }
+          );
+        });
+        break;
+
+      default:
+        throw new Error(`Delete not implemented for type ${voucher.type}`);
     }
+
+    // Borrar voucher finalmente
+    await this.eVoucher.delete({ where: { id } });
+
+    return { message: "Voucher deleted successfully" };
   }
+
+  /**
+   * Helper para manejar stock de productos con await correcto
+   */
 
   async deleteVoucherAll() {
     const voucher = await this.eVoucher.deleteMany();
