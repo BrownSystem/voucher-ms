@@ -12,7 +12,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
     private readonly logger;
     private _normalizeText;
     private updateProductsStock;
-    private _loadTransaction;
     onModuleInit(): void;
     constructor(client: ClientProxy);
     private handleStockChanges;
@@ -28,7 +27,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             id: string;
             currency: import(".prisma/client").$Enums.Currency;
             exchangeRate: number | null;
-            observation: string | null;
             letter: string | null;
             type: import(".prisma/client").$Enums.VoucherType;
             emissionDate: Date;
@@ -42,11 +40,11 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
             totalAmount: number | null;
             paidAmount: number;
+            observation: string | null;
             available: boolean;
             createdBy: string | null;
             emittedBy: string | null;
             deliveredBy: string | null;
-            cancelledInvoiceNumber: string | null;
             status: import(".prisma/client").$Enums.VoucherStatus;
             financialStatus: string | null;
             logisticStatus: string | null;
@@ -54,9 +52,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             createdAt: Date;
             updatedAt: Date;
             updatedBy: string | null;
-        } | {
-            message: string;
-            status: HttpStatus;
         };
         message: string;
         status?: undefined;
@@ -77,7 +72,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             }[];
             payments: {
                 voucherId: string;
-                branchId: string | null;
                 id: string;
                 method: import(".prisma/client").$Enums.PaymentMethod;
                 amount: number;
@@ -89,12 +83,9 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
                 bankId: string | null;
                 cardId: string | null;
                 chequeNumber: string | null;
-                chequeBank: string | null;
                 chequeDueDate: Date | null;
                 chequeStatus: string | null;
                 observation: string | null;
-                branchName: string | null;
-                chequeReceived: Date | null;
                 createdAt: Date;
                 updatedAt: Date;
             }[];
@@ -103,7 +94,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             id: string;
             currency: import(".prisma/client").$Enums.Currency;
             exchangeRate: number | null;
-            observation: string | null;
             letter: string | null;
             type: import(".prisma/client").$Enums.VoucherType;
             emissionDate: Date;
@@ -117,11 +107,11 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
             totalAmount: number | null;
             paidAmount: number;
+            observation: string | null;
             available: boolean;
             createdBy: string | null;
             emittedBy: string | null;
             deliveredBy: string | null;
-            cancelledInvoiceNumber: string | null;
             status: import(".prisma/client").$Enums.VoucherStatus;
             financialStatus: string | null;
             logisticStatus: string | null;
@@ -143,74 +133,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         data?: undefined;
         meta?: undefined;
     }>;
-    findAllByContact(pagination: PaginationDto): Promise<{
-        data: {
-            contactId: string | null;
-            contactName: string | null;
-            voucherType: import(".prisma/client").$Enums.VoucherType;
-            voucherCount: number;
-            totalDeuda: number;
-            vouchers: any[];
-        }[];
-        meta: {
-            totalContactos: number;
-            totalDeudaGeneral: number;
-        };
-        status?: undefined;
-        message?: undefined;
-    } | {
-        status: HttpStatus;
-        message: string;
-        data?: undefined;
-        meta?: undefined;
-    }>;
-    findMonthlySalesByBranch(month: number, year: number): Promise<{
-        data: {
-            branchName: string;
-            ventas: number;
-            cobranzas: number;
-            cantidadComprobantes: number;
-        }[];
-        meta: {
-            totalSucursales: number;
-            totalGeneral: number;
-        };
-        status?: undefined;
-        message?: undefined;
-    } | {
-        status: HttpStatus;
-        message: string;
-        data?: undefined;
-        meta?: undefined;
-    }>;
-    findSalesByBranch(branchId?: string): Promise<{
-        data: never[];
-        meta: {
-            totalSucursales: number;
-            totalGeneral: number;
-            salesEvolution: never[];
-        };
-        status?: undefined;
-        message?: undefined;
-    } | {
-        data: {
-            mes: string;
-            saldoPendiente: number;
-            ingresos: number;
-        }[];
-        meta: {
-            totalSucursales: number;
-            totalGeneral: number;
-            salesEvolution?: undefined;
-        };
-        status?: undefined;
-        message?: undefined;
-    } | {
-        status: HttpStatus;
-        message: string;
-        data?: undefined;
-        meta?: undefined;
-    }>;
     registerPayment(dto: CreatePaymentDto): Promise<{
         status: HttpStatus;
         message: string;
@@ -220,7 +142,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         success: boolean;
         data: {
             voucherId: string;
-            branchId: string | null;
             id: string;
             method: import(".prisma/client").$Enums.PaymentMethod;
             amount: number;
@@ -232,12 +153,9 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             bankId: string | null;
             cardId: string | null;
             chequeNumber: string | null;
-            chequeBank: string | null;
             chequeDueDate: Date | null;
             chequeStatus: string | null;
             observation: string | null;
-            branchName: string | null;
-            chequeReceived: Date | null;
             createdAt: Date;
             updatedAt: Date;
         };
@@ -302,7 +220,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         }[];
         payments: {
             voucherId: string;
-            branchId: string | null;
             id: string;
             method: import(".prisma/client").$Enums.PaymentMethod;
             amount: number;
@@ -314,12 +231,9 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
             bankId: string | null;
             cardId: string | null;
             chequeNumber: string | null;
-            chequeBank: string | null;
             chequeDueDate: Date | null;
             chequeStatus: string | null;
             observation: string | null;
-            branchName: string | null;
-            chequeReceived: Date | null;
             createdAt: Date;
             updatedAt: Date;
         }[];
@@ -328,7 +242,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         id: string;
         currency: import(".prisma/client").$Enums.Currency;
         exchangeRate: number | null;
-        observation: string | null;
         letter: string | null;
         type: import(".prisma/client").$Enums.VoucherType;
         emissionDate: Date;
@@ -342,11 +255,11 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
         conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
         totalAmount: number | null;
         paidAmount: number;
+        observation: string | null;
         available: boolean;
         createdBy: string | null;
         emittedBy: string | null;
         deliveredBy: string | null;
-        cancelledInvoiceNumber: string | null;
         status: import(".prisma/client").$Enums.VoucherStatus;
         financialStatus: string | null;
         logisticStatus: string | null;
@@ -382,41 +295,6 @@ export declare class VouchersService extends PrismaClient implements OnModuleIni
     }>;
     deleteVoucher(deleteVoucherDto: DeleteVoucherDto): Promise<{
         message: string;
-    }>;
-    deletePaymentById(id: string): Promise<{
-        number: string;
-        id: string;
-        currency: import(".prisma/client").$Enums.Currency;
-        exchangeRate: number | null;
-        observation: string | null;
-        letter: string | null;
-        type: import(".prisma/client").$Enums.VoucherType;
-        emissionDate: Date;
-        dueDate: Date | null;
-        emissionBranchId: string | null;
-        emissionBranchName: string | null;
-        destinationBranchId: string | null;
-        destinationBranchName: string | null;
-        contactId: string | null;
-        contactName: string | null;
-        conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
-        totalAmount: number | null;
-        paidAmount: number;
-        available: boolean;
-        createdBy: string | null;
-        emittedBy: string | null;
-        deliveredBy: string | null;
-        cancelledInvoiceNumber: string | null;
-        status: import(".prisma/client").$Enums.VoucherStatus;
-        financialStatus: string | null;
-        logisticStatus: string | null;
-        remainingAmount: number;
-        createdAt: Date;
-        updatedAt: Date;
-        updatedBy: string | null;
-    } | {
-        message: string;
-        status: HttpStatus;
     }>;
     deleteVoucherAll(): Promise<string>;
 }

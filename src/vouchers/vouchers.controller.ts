@@ -33,38 +33,19 @@ export class VouchersController {
     return this.vouchersService.findAllConditionPayment(pagination);
   }
 
-  @MessagePattern({ cmd: "find_all_vouchers_by_contact" })
-  findAllVoucher(@Payload() pagination: PaginationDto) {
-    return this.vouchersService.findAllByContact(pagination);
-  }
-
   @MessagePattern({ cmd: "find_one_voucher" })
   findOneVoucher(@Payload() { id }: { id: string }) {
     return this.vouchersService.findOneVoucher(id);
   }
 
-  @MessagePattern({ cmd: "find_monthly_sales_by_branch" })
-  findMonthlySalesByBranch(
-    @Payload() payload: { month: number; year: number }
-  ) {
-    const { month, year } = payload;
-    return this.vouchersService.findMonthlySalesByBranch(month, year);
-  }
-
-  @MessagePattern({ cmd: "find_sales_by_branch" })
-  findSalesByBranch(@Payload() payload: { branchId: string }) {
-    const { branchId } = payload;
-    return this.vouchersService.findSalesByBranch(branchId);
+  @MessagePattern({ cmd: "register_payment" })
+  registerPayment(@Payload() createPaymentDto: CreatePaymentDto) {
+    return this.vouchersService.registerPayment(createPaymentDto);
   }
 
   @MessagePattern({ cmd: "find_all_reserved_products" })
   findAllReservedProductsByBranchId(@Payload() pagination: PaginationDto) {
     return this.vouchersService.findAllReservedProductsByBranchId(pagination);
-  }
-
-  @MessagePattern({ cmd: "register_payment" })
-  registerPayment(@Payload() createPaymentDto: CreatePaymentDto) {
-    return this.vouchersService.registerPayment(createPaymentDto);
   }
 
   @MessagePattern({ cmd: "update_reserved_product" })
@@ -77,11 +58,6 @@ export class VouchersController {
   @MessagePattern({ cmd: "type_delete" })
   delete(@Payload() deleteVoucherDto: DeleteVoucherDto) {
     return this.vouchersService.deleteVoucher(deleteVoucherDto);
-  }
-
-  @MessagePattern({ cmd: "delete_payment" })
-  deletePayment(@Payload() payload: any) {
-    return this.vouchersService.deletePaymentById(payload?.id);
   }
 
   @MessagePattern({ cmd: "delete" })

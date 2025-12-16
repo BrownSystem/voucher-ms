@@ -11,10 +11,6 @@ export declare class CreateInitialPaymentDto {
     bankId?: string;
     cardId?: string;
     chequeNumber?: string;
-    chequeBank?: string;
     chequeDueDate?: Date;
     chequeStatus?: string;
-    observation?: string;
-    branchId: string;
-    branchName: string;
 }

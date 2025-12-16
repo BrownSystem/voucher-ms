@@ -29,7 +29,6 @@ enum ConditionPayment {
 enum PaymentMethod {
   EFECTIVO
   CHEQUE
-  CHEQUE_TERCERO
   TRANSFERENCIA
   TARJETA
 }
@@ -85,8 +84,6 @@ model EVoucher {
   observation          String?
 
   available            Boolean @default(true)
-
-  cancelledInvoiceNumber  String?
 
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -151,18 +148,6 @@ model EBank {
   @@index([alias])
 }
 
-model ECheckBook {
-  id String @id @default(uuid())
-
-  branchId String?
-  amount Float
-  chequeNumber      String?
-  chequeDueDate     DateTime?
-  chequeReceived    DateTime?
-  chequeBank        String?
-  available Boolean?   @default(true)
-}
-
 model ECard {
   id String @id @default(uuid())
   name String
@@ -200,20 +185,13 @@ model EPayment {
   // Cheque info
   chequeNumber      String?
   chequeDueDate     DateTime?
-  chequeReceived    DateTime?
-  chequeStatus      String? 
-  chequeBank        String?
+  chequeStatus      String? // PENDIENTE, RECHAZADO, COMPENSADO
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   observation String?
 
-  branchName  String?
-  branchId    String?
-
   @@index([voucherId, method])
   @@index([receivedAt])
 }
-
-

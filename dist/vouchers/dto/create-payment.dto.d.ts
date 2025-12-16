@@ -10,12 +10,9 @@ export declare class CreatePaymentDto {
     receivedBy?: string;
     bankId?: string;
     cardId?: string;
-    chequeNumber: string;
-    chequeDueDate: Date;
-    chequeReceived: Date;
-    chequeBank: string;
+    chequeNumber?: string;
+    chequeDueDate?: Date;
     chequeStatus?: string;
-    observation?: string;
     voucherId: string;
-    boxId?: string;
+    observation: string;
 }

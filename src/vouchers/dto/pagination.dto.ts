@@ -54,10 +54,6 @@ export class PaginationDto {
   @IsOptional()
   branch: string;
 
-  @IsString()
-  @IsOptional()
-  productId: string;
-
   constructor(partial: Partial<PaginationDto> = {}) {
     Object.assign(this, partial);
     this.limit = partial?.limit || 10;

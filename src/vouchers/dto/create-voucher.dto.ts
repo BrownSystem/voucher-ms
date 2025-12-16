@@ -1,4 +1,9 @@
-import { ConditionPayment, Currency, VoucherType } from "@prisma/client";
+import {
+  ConditionPayment,
+  Currency,
+  VoucherStatus,
+  VoucherType,
+} from "@prisma/client";
 import { Type } from "class-transformer";
 import {
   ArrayMinSize,
@@ -16,10 +21,6 @@ import { VoucherProductItemDto } from "./voucher-product-item.dto";
 import { CreateInitialPaymentDto } from "./initial-payment.dto";
 
 export class CreateVoucherDto {
-  @IsString()
-  @IsOptional()
-  boxId: string;
-
   @IsString()
   @IsOptional()
   letter?: string;
@@ -104,10 +105,6 @@ export class CreateVoucherDto {
   @IsString()
   @IsOptional()
   deliveredBy?: string;
-
-  @IsString()
-  @IsOptional()
-  cancelledInvoiceNumber: string;
 
   @IsOptional()
   @IsArray()

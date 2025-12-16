@@ -38,34 +38,20 @@ let VouchersController = class VouchersController {
     findAllConditionPayment(pagination) {
         return this.vouchersService.findAllConditionPayment(pagination);
     }
-    findAllVoucher(pagination) {
-        return this.vouchersService.findAllByContact(pagination);
-    }
     findOneVoucher({ id }) {
         return this.vouchersService.findOneVoucher(id);
     }
-    findMonthlySalesByBranch(payload) {
-        const { month, year } = payload;
-        return this.vouchersService.findMonthlySalesByBranch(month, year);
-    }
-    findSalesByBranch(payload) {
-        const { branchId } = payload;
-        return this.vouchersService.findSalesByBranch(branchId);
+    registerPayment(createPaymentDto) {
+        return this.vouchersService.registerPayment(createPaymentDto);
     }
     findAllReservedProductsByBranchId(pagination) {
         return this.vouchersService.findAllReservedProductsByBranchId(pagination);
-    }
-    registerPayment(createPaymentDto) {
-        return this.vouchersService.registerPayment(createPaymentDto);
     }
     update({ id, data }) {
         return this.vouchersService.updateReservedProduct(id, data);
     }
     delete(deleteVoucherDto) {
         return this.vouchersService.deleteVoucher(deleteVoucherDto);
-    }
-    deletePayment(payload) {
-        return this.vouchersService.deletePaymentById(payload?.id);
     }
     deleteAll() {
         return this.vouchersService.deleteVoucherAll();
@@ -101,13 +87,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "findAllConditionPayment", null);
 __decorate([
-    (0, microservices_1.MessagePattern)({ cmd: "find_all_vouchers_by_contact" }),
-    __param(0, (0, microservices_1.Payload)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto]),
-    __metadata("design:returntype", void 0)
-], VouchersController.prototype, "findAllVoucher", null);
-__decorate([
     (0, microservices_1.MessagePattern)({ cmd: "find_one_voucher" }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
@@ -115,19 +94,12 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "findOneVoucher", null);
 __decorate([
-    (0, microservices_1.MessagePattern)({ cmd: "find_monthly_sales_by_branch" }),
+    (0, microservices_1.MessagePattern)({ cmd: "register_payment" }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [create_payment_dto_1.CreatePaymentDto]),
     __metadata("design:returntype", void 0)
-], VouchersController.prototype, "findMonthlySalesByBranch", null);
-__decorate([
-    (0, microservices_1.MessagePattern)({ cmd: "find_sales_by_branch" }),
-    __param(0, (0, microservices_1.Payload)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], VouchersController.prototype, "findSalesByBranch", null);
+], VouchersController.prototype, "registerPayment", null);
 __decorate([
     (0, microservices_1.MessagePattern)({ cmd: "find_all_reserved_products" }),
     __param(0, (0, microservices_1.Payload)()),
@@ -135,13 +107,6 @@ __decorate([
     __metadata("design:paramtypes", [pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "findAllReservedProductsByBranchId", null);
-__decorate([
-    (0, microservices_1.MessagePattern)({ cmd: "register_payment" }),
-    __param(0, (0, microservices_1.Payload)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_payment_dto_1.CreatePaymentDto]),
-    __metadata("design:returntype", void 0)
-], VouchersController.prototype, "registerPayment", null);
 __decorate([
     (0, microservices_1.MessagePattern)({ cmd: "update_reserved_product" }),
     __param(0, (0, microservices_1.Payload)()),
@@ -156,13 +121,6 @@ __decorate([
     __metadata("design:paramtypes", [delete_voucher_dto_1.DeleteVoucherDto]),
     __metadata("design:returntype", void 0)
 ], VouchersController.prototype, "delete", null);
-__decorate([
-    (0, microservices_1.MessagePattern)({ cmd: "delete_payment" }),
-    __param(0, (0, microservices_1.Payload)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], VouchersController.prototype, "deletePayment", null);
 __decorate([
     (0, microservices_1.MessagePattern)({ cmd: "delete" }),
     __metadata("design:type", Function),

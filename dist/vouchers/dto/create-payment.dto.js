@@ -26,12 +26,9 @@ class CreatePaymentDto {
     cardId;
     chequeNumber;
     chequeDueDate;
-    chequeReceived;
-    chequeBank;
     chequeStatus;
-    observation;
     voucherId;
-    boxId;
+    observation;
 }
 exports.CreatePaymentDto = CreatePaymentDto;
 __decorate([
@@ -79,50 +76,28 @@ __decorate([
     __metadata("design:type", String)
 ], CreatePaymentDto.prototype, "cardId", void 0);
 __decorate([
-    (0, class_validator_1.ValidateIf)((o) => o.method === payment_method_enum_1.PaymentMethod.CHEQUE_TERCERO ||
-        o.method === payment_method_enum_1.PaymentMethod.CHEQUE),
-    (0, class_validator_1.IsString)({
-        message: "El número de cheque es obligatorio para pagos con cheque",
-    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePaymentDto.prototype, "chequeNumber", void 0);
 __decorate([
-    (0, class_validator_1.ValidateIf)((o) => o.method === payment_method_enum_1.PaymentMethod.CHEQUE_TERCERO ||
-        o.method === payment_method_enum_1.PaymentMethod.CHEQUE),
-    (0, class_validator_1.IsDate)({ message: "La fecha de vencimiento del cheque es obligatoria" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsDate)(),
     (0, class_transformer_1.Type)(() => Date),
     __metadata("design:type", Date)
 ], CreatePaymentDto.prototype, "chequeDueDate", void 0);
-__decorate([
-    (0, class_validator_1.ValidateIf)((o) => o.method === payment_method_enum_1.PaymentMethod.CHEQUE_TERCERO ||
-        o.method === payment_method_enum_1.PaymentMethod.CHEQUE),
-    (0, class_validator_1.IsDate)({ message: "La fecha de recepción del cheque es obligatoria" }),
-    (0, class_transformer_1.Type)(() => Date),
-    __metadata("design:type", Date)
-], CreatePaymentDto.prototype, "chequeReceived", void 0);
-__decorate([
-    (0, class_validator_1.ValidateIf)((o) => o.method === payment_method_enum_1.PaymentMethod.CHEQUE_TERCERO ||
-        o.method === payment_method_enum_1.PaymentMethod.CHEQUE),
-    (0, class_validator_1.IsString)({ message: "El banco del cheque es obligatorio" }),
-    __metadata("design:type", String)
-], CreatePaymentDto.prototype, "chequeBank", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePaymentDto.prototype, "chequeStatus", void 0);
 __decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreatePaymentDto.prototype, "observation", void 0);
-__decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePaymentDto.prototype, "voucherId", void 0);
 __decorate([
-    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], CreatePaymentDto.prototype, "boxId", void 0);
+], CreatePaymentDto.prototype, "observation", void 0);
 //# sourceMappingURL=create-payment.dto.js.map

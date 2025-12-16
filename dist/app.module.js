@@ -11,13 +11,12 @@ const common_1 = require("@nestjs/common");
 const vouchers_module_1 = require("./vouchers/vouchers.module");
 const banks_module_1 = require("./banks/banks.module");
 const card_module_1 = require("./card/card.module");
-const check_book_module_1 = require("./checkBook/check-book.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [vouchers_module_1.VouchersModule, banks_module_1.BanksModule, card_module_1.CardModule, check_book_module_1.CheckBookModule],
+        imports: [vouchers_module_1.VouchersModule, banks_module_1.BanksModule, card_module_1.CardModule],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
