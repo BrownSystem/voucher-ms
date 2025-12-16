@@ -5,6 +5,7 @@ var PaymentMethod;
 (function (PaymentMethod) {
     PaymentMethod["EFFECTIVO"] = "EFECTIVO";
     PaymentMethod["CHEQUE"] = "CHEQUE";
+    PaymentMethod["CHEQUE_TERCERO"] = "CHEQUE_TERCERO";
     PaymentMethod["TRANSFERENCIA"] = "TRANSFERENCIA";
     PaymentMethod["TARJETA"] = "TARJETA";
 })(PaymentMethod || (exports.PaymentMethod = PaymentMethod = {}));

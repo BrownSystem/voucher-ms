@@ -25,8 +25,12 @@ class CreateInitialPaymentDto {
     bankId;
     cardId;
     chequeNumber;
+    chequeBank;
     chequeDueDate;
     chequeStatus;
+    observation;
+    branchId;
+    branchName;
 }
 exports.CreateInitialPaymentDto = CreateInitialPaymentDto;
 __decorate([
@@ -79,6 +83,11 @@ __decorate([
     __metadata("design:type", String)
 ], CreateInitialPaymentDto.prototype, "chequeNumber", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateInitialPaymentDto.prototype, "chequeBank", void 0);
+__decorate([
     (0, class_validator_1.IsDate)(),
     (0, class_transformer_1.Type)(() => Date),
     (0, class_validator_1.IsOptional)(),
@@ -89,4 +98,17 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateInitialPaymentDto.prototype, "chequeStatus", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateInitialPaymentDto.prototype, "observation", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateInitialPaymentDto.prototype, "branchId", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateInitialPaymentDto.prototype, "branchName", void 0);
 //# sourceMappingURL=initial-payment.dto.js.map

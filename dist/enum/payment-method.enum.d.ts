@@ -1,6 +1,7 @@
 export declare enum PaymentMethod {
     EFFECTIVO = "EFECTIVO",
     CHEQUE = "CHEQUE",
+    CHEQUE_TERCERO = "CHEQUE_TERCERO",
     TRANSFERENCIA = "TRANSFERENCIA",
     TARJETA = "TARJETA"
 }

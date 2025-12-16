@@ -6,13 +6,13 @@ import {
   Logger,
   OnModuleInit,
 } from "@nestjs/common";
-import { PrismaClient, VoucherType } from "@prisma/client";
+import { EPayment, PrismaClient, VoucherType } from "@prisma/client";
 import { PaginationDto } from "./dto/pagination.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { ConditionPayment } from "src/enum";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 import { NATS_SERVICE } from "src/config";
-import { ClientProxy } from "@nestjs/microservices";
+import { ClientProxy, RpcException } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
 import { DeleteVoucherDto } from "./dto/delete-voucher.dto";
@@ -32,6 +32,50 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
   ) {
     for (const product of products) {
       await firstValueFrom(await action(product));
+    }
+  }
+
+  private async _loadTransaction({
+    boxId,
+    type,
+    amount,
+    paymentMethod,
+    description,
+    currency,
+    contactId,
+    contactName,
+    branchId,
+    branchName,
+    cancelledInvoiceNumber,
+    voucherId,
+    voucherNumber,
+    paymentId,
+  }) {
+    const transaction = await firstValueFrom(
+      this.client.send(
+        { cmd: "load_transaction_type_voucher" },
+        {
+          boxId,
+          type,
+          amount,
+          paymentMethod,
+          description,
+          currency,
+          contactId,
+          contactName,
+          branchId,
+          branchName,
+          voucherId,
+          voucherNumber,
+          cancelledInvoiceNumber,
+          paymentId,
+        }
+      )
+    );
+
+    // Si por algún motivo devuelve objeto en lugar de throw
+    if (transaction?.status && transaction.status !== HttpStatus.OK) {
+      throw new RpcException(transaction.message);
     }
   }
 
@@ -179,6 +223,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       const {
         products,
         type,
+        boxId,
         emissionBranchId,
         paidAmount = 0,
         available = true,
@@ -188,6 +233,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         initialPayment,
         destinationBranchId,
         destinationBranchName,
+        cancelledInvoiceNumber,
         ...voucherData
       } = createVoucherDto;
 
@@ -277,9 +323,63 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               }
             }
 
-            await tx.ePayment.create({
+            if (payment.cardId) {
+              const card = await tx.eCard.findUnique({
+                where: { id: payment.cardId },
+              });
+              if (!card) {
+                throw new Error(
+                  `[CREATE_PAYMENT] La tarjeta ${payment.cardId} no existe.`
+                );
+              }
+            }
+
+            const createPayment = await tx.ePayment.create({
               data: { ...payment, voucherId: voucher.id },
             });
+
+            if (!createPayment) {
+              return {
+                message: `[CREATE_PAYMENT_IN_VOUCHER_CREATE] No se pudo generarar el pago.`,
+                status: HttpStatus.INTERNAL_SERVER_ERROR,
+              };
+            } else {
+              if (
+                createPayment.method === "CHEQUE_TERCERO" &&
+                voucher?.type === "P"
+              ) {
+                //Agregar a la billetera
+                const checkBook = await this.eCheckBook.create({
+                  data: {
+                    branchId: voucher?.emissionBranchId,
+                    chequeNumber: createPayment.chequeNumber,
+                    chequeDueDate: createPayment.chequeDueDate,
+                    chequeReceived: createPayment.chequeReceived,
+                    chequeBank: createPayment.chequeBank,
+                    amount: createPayment?.amount,
+                  },
+                });
+              }
+              // Registrar transacción en caja
+              if (boxId) {
+                await this._loadTransaction({
+                  boxId,
+                  type,
+                  amount: payment?.amount,
+                  paymentMethod: payment?.method,
+                  description: payment?.observation,
+                  currency: payment?.currency,
+                  contactId: createVoucherDto?.contactId,
+                  contactName: createVoucherDto?.contactName,
+                  branchId: emissionBranchId,
+                  branchName: createVoucherDto?.emissionBranchName,
+                  cancelledInvoiceNumber,
+                  voucherId: voucher?.id,
+                  voucherNumber: voucher?.number,
+                  paymentId: createPayment?.id,
+                });
+              }
+            }
           }
         }
 
@@ -325,34 +425,37 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         branch,
         dateFrom,
         dateUntil,
+        productId,
       } = pagination;
 
       const whereClause: any = {
         available: true,
+        ...(productId && {
+          products: {
+            some: { productId },
+          },
+        }),
       };
 
-      // Filtros directos
       if (type) whereClause.type = type;
       if (conditionPayment) whereClause.conditionPayment = conditionPayment;
       if (emissionBranchId) whereClause.emissionBranchId = emissionBranchId;
       if (contactId) whereClause.contactId = contactId;
-      if (branch)
+      if (branch) {
         whereClause.emissionBranchName = {
           contains: branch,
           mode: "insensitive",
         };
+      }
 
-      // Filtro de fechas
       if (dateFrom || dateUntil) {
         whereClause.emissionDate = {};
         if (dateFrom) whereClause.emissionDate.gte = dateFrom;
         if (dateUntil) whereClause.emissionDate.lte = dateUntil;
       }
 
-      // Filtro de búsqueda
       if (search) {
         const normalizedSearch = this._normalizeText(search);
-
         whereClause.OR = [
           {
             number: {
@@ -375,11 +478,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         ];
       }
 
-      // Query principal
-      const vouchers = await this.eVoucher.findMany({
+      // Obtener todos los vouchers que cumplen con los filtros
+      const allVouchers = await this.eVoucher.findMany({
         where: whereClause,
-        take: limit,
-        skip: (offset - 1) * limit,
         include: {
           products: true,
           payments: true,
@@ -387,14 +488,34 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         orderBy: [{ createdAt: "desc" }, { number: "desc" }],
       });
 
-      const total = await this.eVoucher.count({ where: whereClause });
+      // Filtrar por productQuantity si hay productId
+      const filteredVouchers = productId
+        ? allVouchers
+            .map((voucher) => {
+              const productQuantity = voucher.products
+                .filter((p) => p.productId === productId)
+                .reduce((acc, p) => acc + p.quantity, 0);
+
+              return {
+                ...voucher,
+                productQuantity,
+              };
+            })
+            .filter((voucher) => voucher.productQuantity > 0)
+        : allVouchers;
+
+      // Paginar manualmente
+      const paginatedVouchers = filteredVouchers.slice(
+        (offset - 1) * limit,
+        offset * limit
+      );
 
       return {
-        data: vouchers,
+        data: paginatedVouchers,
         meta: {
-          total,
+          total: filteredVouchers.length,
           page: offset,
-          lastPage: Math.ceil(total / limit),
+          lastPage: Math.ceil(filteredVouchers.length / limit),
         },
       };
     } catch (error) {
@@ -405,8 +526,306 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     }
   }
 
+  // METRICAS
+  // DEUDAS DE CONTACTOS
+  async findAllByContact(pagination: PaginationDto) {
+    try {
+      const {
+        conditionPayment,
+        search,
+        type,
+        emissionBranchId,
+        contactId,
+        branch,
+        dateFrom,
+        dateUntil,
+      } = pagination;
+
+      const whereClause: any = {
+        available: true,
+        remainingAmount: { gt: 0 },
+      };
+
+      if (type) whereClause.type = type;
+      if (conditionPayment) whereClause.conditionPayment = conditionPayment;
+      if (emissionBranchId) whereClause.emissionBranchId = emissionBranchId;
+      if (contactId) whereClause.contactId = contactId;
+      if (branch)
+        whereClause.emissionBranchName = {
+          contains: branch,
+          mode: "insensitive",
+        };
+
+      if (dateFrom || dateUntil) {
+        whereClause.emissionDate = {};
+        if (dateFrom) whereClause.emissionDate.gte = dateFrom;
+        if (dateUntil) whereClause.emissionDate.lte = dateUntil;
+      }
+
+      if (search) {
+        const normalizedSearch = this._normalizeText(search);
+
+        whereClause.OR = [
+          { contactName: { contains: normalizedSearch, mode: "insensitive" } },
+          {
+            emissionBranchName: {
+              contains: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+          { number: { contains: normalizedSearch, mode: "insensitive" } },
+        ];
+      }
+
+      // 📊 Agrupación y suma total de deuda por contacto
+      const groupedDebts = await this.eVoucher.groupBy({
+        by: ["contactId", "contactName", "type"],
+        where: whereClause,
+        _sum: { remainingAmount: true },
+        _count: { _all: true },
+        orderBy: { _sum: { remainingAmount: "desc" } },
+      });
+
+      // 🔍 Buscamos los vouchers con include
+      const vouchers = await this.eVoucher.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          number: true,
+          contactId: true,
+          contactName: true,
+          payments: true,
+          products: true,
+        },
+      });
+
+      // 📦 Agrupamos los vouchers por contacto
+      // 📦 Agrupamos los vouchers por contacto
+      const vouchersByContact = vouchers.reduce(
+        (acc, v) => {
+          const contactKey = v.contactId ?? "no-contact"; // 👈 evitamos null
+
+          if (!acc[contactKey]) acc[contactKey] = [];
+
+          acc[contactKey].push({
+            id: v.id,
+            number: v.number,
+            payments: v.payments,
+            products: v.products,
+          });
+
+          return acc;
+        },
+        {} as Record<string, any[]>
+      );
+
+      // 🧩 Combinamos la información de deuda + lista de vouchers
+      const result = groupedDebts.map((g) => ({
+        contactId: g.contactId,
+        contactName: g.contactName,
+        voucherType: g.type,
+        voucherCount: g._count._all,
+        totalDeuda: g._sum.remainingAmount ?? 0,
+        vouchers: vouchersByContact[g.contactId ?? "no-contact"] ?? [],
+      }));
+
+      return {
+        data: result,
+        meta: {
+          totalContactos: result.length,
+          totalDeudaGeneral: result.reduce((acc, c) => acc + c.totalDeuda, 0),
+        },
+      };
+    } catch (error) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `[FIND_ALL_CONTACT_DEBT] Error fetching debts: ${error.message}`,
+      };
+    }
+  }
+
+  // VENTAS MENSUALES
+  // POR SUCURSAL
+  async findMonthlySalesByBranch(month: number, year: number) {
+    try {
+      // 📅 Calculamos el rango de fechas del mes
+      const dateFrom = new Date(year, month - 1, 1);
+      const dateUntil = new Date(year, month, 0, 23, 59, 59, 999);
+
+      // 🧠 Agrupamos por sucursal, filtrando opcionalmente por branchId
+      const groupedSales = await this.eVoucher.groupBy({
+        by: ["emissionBranchName"],
+        where: {
+          available: true,
+          emissionDate: {
+            gte: dateFrom,
+            lte: dateUntil,
+          },
+          totalAmount: { gt: 0 },
+        },
+        _sum: {
+          totalAmount: true,
+          remainingAmount: true,
+        },
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          _sum: { totalAmount: "desc" },
+        },
+      });
+
+      // 🧩 Armamos la respuesta clara
+      const result = groupedSales.map((g) => ({
+        branchName: g.emissionBranchName ?? "Sin sucursal",
+        ventas: g._sum.totalAmount ?? 0,
+        cobranzas: g._sum.remainingAmount ?? 0,
+        cantidadComprobantes: g._count._all,
+      }));
+
+      return {
+        data: result,
+        meta: {
+          totalSucursales: result.length,
+          totalGeneral: result.reduce((acc, s) => acc + s.ventas, 0),
+        },
+      };
+    } catch (error) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `[FIND_MONTHLY_SALES_BY_BRANCH] Error fetching sales by branch: ${error.message}`,
+      };
+    }
+  }
+
+  async findSalesByBranch(branchId?: string) {
+    try {
+      // 📅 1️⃣ Última fecha registrada
+      const lastVoucher = await this.eVoucher.findFirst({
+        where: {
+          available: true,
+          totalAmount: { gt: 0 },
+          ...(branchId && { emissionBranchId: branchId }),
+        },
+        orderBy: {
+          emissionDate: "desc",
+        },
+        select: {
+          emissionDate: true,
+        },
+      });
+
+      if (!lastVoucher) {
+        return {
+          data: [],
+          meta: {
+            totalSucursales: 0,
+            totalGeneral: 0,
+            salesEvolution: [],
+          },
+        };
+      }
+
+      const lastDate = new Date(lastVoucher.emissionDate);
+      const lastYear = lastDate.getFullYear();
+      const lastMonth = lastDate.getMonth(); // 0 = enero
+
+      // 🧠 2️⃣ Totales generales
+      const groupedSales = await this.eVoucher.groupBy({
+        by: ["emissionBranchName"],
+        where: {
+          available: true,
+          totalAmount: { gt: 0 },
+          ...(branchId && { emissionBranchId: branchId }),
+        },
+        _sum: {
+          remainingAmount: true,
+          paidAmount: true,
+        },
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          _sum: { totalAmount: "desc" },
+        },
+      });
+
+      const result = groupedSales.map((g) => ({
+        branchName: g.emissionBranchName ?? "Sin sucursal",
+        saldoPendiente: g._sum.remainingAmount ?? 0,
+        ingresos: g._sum.paidAmount ?? 0,
+        cantidadComprobantes: g._count._all,
+      }));
+
+      // 📊 3️⃣ Evolución mensual
+      const monthNames = [
+        "Ene",
+        "Feb",
+        "Mar",
+        "Abr",
+        "May",
+        "Jun",
+        "Jul",
+        "Agos",
+        "Sept",
+        "Oct",
+        "Nov",
+        "Dic",
+      ];
+
+      type MonthlySales = {
+        mes: string;
+        saldoPendiente: number;
+        ingresos: number;
+      };
+
+      const salesEvolution: MonthlySales[] = [];
+
+      for (let m = 0; m <= lastMonth; m++) {
+        const startDate = new Date(lastYear, m, 1);
+        const endDate = new Date(lastYear, m + 1, 0, 23, 59, 59, 999);
+
+        const monthlyTotals = await this.eVoucher.aggregate({
+          _sum: {
+            remainingAmount: true,
+            paidAmount: true,
+          },
+          where: {
+            available: true,
+            emissionDate: {
+              gte: startDate,
+              lte: endDate,
+            },
+            totalAmount: { gt: 0 },
+            ...(branchId && { emissionBranchId: branchId }),
+          },
+        });
+
+        salesEvolution.push({
+          mes: monthNames[m],
+          saldoPendiente: monthlyTotals._sum.remainingAmount ?? 0,
+          ingresos: monthlyTotals._sum.paidAmount ?? 0,
+        });
+      }
+
+      return {
+        data: salesEvolution,
+        meta: {
+          totalSucursales: result.length,
+          totalGeneral: result.reduce((acc, s) => acc + s.saldoPendiente, 0),
+        },
+      };
+    } catch (error) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `[FIND_SALES_BY_BRANCH] Error al traer la información: ${error.message}`,
+      };
+    }
+  }
+
   async registerPayment(dto: CreatePaymentDto) {
     try {
+      const { boxId, ...data } = dto;
       // Validar existencia del comprobante
       const voucher = await this.eVoucher.findUnique({
         where: { id: dto.voucherId, available: true },
@@ -442,31 +861,69 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
       // Crear el pago
       const payment = await this.ePayment.create({
-        data: { ...dto },
+        data: { ...data },
       });
 
-      // Actualizar el estado del comprobante (si corresponde)
-      const pagosAnteriores = await this.ePayment.findMany({
-        where: { voucherId: dto.voucherId },
-      });
+      if (!payment) {
+        return {
+          message: `[CREATE_PAYMENT] No se pudo generarar el pago.`,
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        };
+      } else {
+        if (payment.method === "CHEQUE_TERCERO" && voucher?.type === "P") {
+          //Agregar a la billetera
+          const checkBook = await this.eCheckBook.create({
+            data: {
+              branchId: voucher?.emissionBranchId,
+              chequeNumber: payment.chequeNumber,
+              chequeDueDate: payment.chequeDueDate,
+              chequeReceived: payment.chequeReceived,
+              chequeBank: payment.chequeBank,
+              amount: payment?.amount,
+            },
+          });
+        }
 
-      const totalPagado = pagosAnteriores.reduce(
-        (sum, p) => sum + (p.amount ?? 0),
-        0
-      );
+        // Actualizar el estado del comprobante (si corresponde)
+        const pagosAnteriores = await this.ePayment.findMany({
+          where: { voucherId: dto.voucherId },
+        });
 
-      const remaining = (voucher.totalAmount ?? 0) - totalPagado;
+        await this._loadTransaction({
+          boxId,
+          type: voucher?.type,
+          amount: payment?.amount,
+          paymentMethod: payment?.method,
+          description: payment?.observation,
+          currency: payment?.currency,
+          contactId: voucher?.contactId,
+          contactName: voucher?.contactName,
+          branchId: voucher?.emissionBranchId,
+          branchName: voucher?.emissionBranchName,
+          voucherId: voucher?.id,
+          voucherNumber: voucher?.number,
+          cancelledInvoiceNumber: null,
+          paymentId: payment?.id,
+        });
 
-      await this.eVoucher.update({
-        where: { id: dto.voucherId },
-        data: {
-          paidAmount: totalPagado,
-          remainingAmount: remaining,
-          status: remaining <= 0 ? "PAGADO" : "PENDIENTE",
-          conditionPayment:
-            remaining <= 0 ? ConditionPayment.CASH : ConditionPayment.CREDIT,
-        },
-      });
+        const totalPagado = pagosAnteriores.reduce(
+          (sum, p) => sum + (p.amount ?? 0),
+          0
+        );
+
+        const remaining = (voucher.totalAmount ?? 0) - totalPagado;
+
+        await this.eVoucher.update({
+          where: { id: dto.voucherId },
+          data: {
+            paidAmount: totalPagado,
+            remainingAmount: remaining,
+            status: remaining <= 0 ? "PAGADO" : "PENDIENTE",
+            conditionPayment:
+              remaining <= 0 ? ConditionPayment.CASH : ConditionPayment.CREDIT,
+          },
+        });
+      }
 
       return {
         success: true,
@@ -635,6 +1092,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       .map(
         (p) => `
         <tr>
+          <td>${p.code}</td>
           <td>${p.description}</td>
           <td>${p.quantity}</td>
           <td>$${p.price.toFixed(2)}</td>
@@ -756,6 +1214,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       <table>
         <thead>
           <tr>
+            <th>Código</th>
             <th>Descripción</th>
             <th>Cantidad</th>
             <th>Precio</th>
@@ -946,12 +1405,49 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     return { message: "Voucher deleted successfully" };
   }
 
-  /**
-   * Helper para manejar stock de productos con await correcto
-   */
+  async deletePaymentById(id: string) {
+    try {
+      const payment = await this.ePayment.delete({
+        where: {
+          id,
+        },
+      });
+
+      const voucher = await this.findOneVoucher(payment?.voucherId);
+
+      const paidAmount = (voucher?.paidAmount ?? 0) - (payment?.amount ?? 0);
+      const remainingAmount = (voucher?.totalAmount ?? 0) - paidAmount;
+
+      const voucherUpdate = await this.eVoucher.update({
+        where: {
+          id: payment?.voucherId,
+        },
+        data: {
+          paidAmount,
+          remainingAmount,
+          status: "PENDIENTE",
+          conditionPayment: "CREDIT",
+        },
+      });
+
+      if (!payment) {
+        return {
+          message: "[DELETE_PAYMENT] No se encuentra el pago.",
+          status: HttpStatus.BAD_REQUEST,
+        };
+      }
+
+      return voucherUpdate;
+    } catch (error) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `[DELETE_PAYMENT] No se pudo eliminar el pago: ${error.message}`,
+      };
+    }
+  }
 
   async deleteVoucherAll() {
-    const voucher = await this.eVoucher.deleteMany();
-    return "Succefully";
+    await this.eVoucher.deleteMany();
+    return "Successfully";
   }
 }

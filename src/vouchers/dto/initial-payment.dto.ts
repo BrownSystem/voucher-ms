@@ -50,6 +50,10 @@ export class CreateInitialPaymentDto {
   @IsOptional()
   chequeNumber?: string;
 
+  @IsString()
+  @IsOptional()
+  chequeBank?: string;
+
   @IsDate()
   @Type(() => Date)
   @IsOptional()
@@ -58,4 +62,14 @@ export class CreateInitialPaymentDto {
   @IsString()
   @IsOptional()
   chequeStatus?: string;
+
+  @IsString()
+  @IsOptional()
+  observation?: string;
+
+  @IsString()
+  branchId: string;
+
+  @IsString()
+  branchName: string;
 }
