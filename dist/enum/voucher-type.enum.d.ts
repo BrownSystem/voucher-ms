@@ -1,7 +1,0 @@
-export declare enum VoucherType {
-    FACTURA = "FACTURA",
-    REMITO = "REMITO",
-    NOTA_CREDITO_PROVEEDOR = "NOTA_CREDITO_PROVEEDOR",
-    NOTA_CREDITO_CLIENTE = "NOTA_CREDITO_CLIENTE",
-    P = "P"
-}
