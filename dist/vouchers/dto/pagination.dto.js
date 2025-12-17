@@ -25,6 +25,7 @@ class PaginationDto {
     dateFrom;
     dateUntil;
     branch;
+    productId;
     constructor(partial = {}) {
         Object.assign(this, partial);
         this.limit = partial?.limit || 10;
@@ -86,4 +87,9 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], PaginationDto.prototype, "branch", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], PaginationDto.prototype, "productId", void 0);
 //# sourceMappingURL=pagination.dto.js.map

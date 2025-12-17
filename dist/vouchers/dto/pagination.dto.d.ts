@@ -11,5 +11,6 @@ export declare class PaginationDto {
     dateFrom?: Date;
     dateUntil?: Date;
     branch: string;
+    productId: string;
     constructor(partial?: Partial<PaginationDto>);
 }

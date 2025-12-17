@@ -24,6 +24,7 @@ export declare class VouchersController {
             id: string;
             currency: import(".prisma/client").$Enums.Currency;
             exchangeRate: number | null;
+            observation: string | null;
             letter: string | null;
             type: import(".prisma/client").$Enums.VoucherType;
             emissionDate: Date;
@@ -37,11 +38,11 @@ export declare class VouchersController {
             conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
             totalAmount: number | null;
             paidAmount: number;
-            observation: string | null;
             available: boolean;
             createdBy: string | null;
             emittedBy: string | null;
             deliveredBy: string | null;
+            cancelledInvoiceNumber: string | null;
             status: import(".prisma/client").$Enums.VoucherStatus;
             financialStatus: string | null;
             logisticStatus: string | null;
@@ -49,6 +50,9 @@ export declare class VouchersController {
             createdAt: Date;
             updatedAt: Date;
             updatedBy: string | null;
+        } | {
+            message: string;
+            status: import("@nestjs/common").HttpStatus;
         };
         message: string;
         status?: undefined;
@@ -69,6 +73,7 @@ export declare class VouchersController {
             }[];
             payments: {
                 voucherId: string;
+                branchId: string | null;
                 id: string;
                 method: import(".prisma/client").$Enums.PaymentMethod;
                 amount: number;
@@ -80,9 +85,12 @@ export declare class VouchersController {
                 bankId: string | null;
                 cardId: string | null;
                 chequeNumber: string | null;
+                chequeBank: string | null;
                 chequeDueDate: Date | null;
                 chequeStatus: string | null;
                 observation: string | null;
+                branchName: string | null;
+                chequeReceived: Date | null;
                 createdAt: Date;
                 updatedAt: Date;
             }[];
@@ -91,6 +99,7 @@ export declare class VouchersController {
             id: string;
             currency: import(".prisma/client").$Enums.Currency;
             exchangeRate: number | null;
+            observation: string | null;
             letter: string | null;
             type: import(".prisma/client").$Enums.VoucherType;
             emissionDate: Date;
@@ -104,11 +113,11 @@ export declare class VouchersController {
             conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
             totalAmount: number | null;
             paidAmount: number;
-            observation: string | null;
             available: boolean;
             createdBy: string | null;
             emittedBy: string | null;
             deliveredBy: string | null;
+            cancelledInvoiceNumber: string | null;
             status: import(".prisma/client").$Enums.VoucherStatus;
             financialStatus: string | null;
             logisticStatus: string | null;
@@ -121,6 +130,27 @@ export declare class VouchersController {
             total: number;
             page: number;
             lastPage: number;
+        };
+        status?: undefined;
+        message?: undefined;
+    } | {
+        status: import("@nestjs/common").HttpStatus;
+        message: string;
+        data?: undefined;
+        meta?: undefined;
+    }>;
+    findAllVoucher(pagination: PaginationDto): Promise<{
+        data: {
+            contactId: string | null;
+            contactName: string | null;
+            voucherType: import(".prisma/client").$Enums.VoucherType;
+            voucherCount: number;
+            totalDeuda: number;
+            vouchers: any[];
+        }[];
+        meta: {
+            totalContactos: number;
+            totalDeudaGeneral: number;
         };
         status?: undefined;
         message?: undefined;
@@ -147,6 +177,7 @@ export declare class VouchersController {
         }[];
         payments: {
             voucherId: string;
+            branchId: string | null;
             id: string;
             method: import(".prisma/client").$Enums.PaymentMethod;
             amount: number;
@@ -158,9 +189,12 @@ export declare class VouchersController {
             bankId: string | null;
             cardId: string | null;
             chequeNumber: string | null;
+            chequeBank: string | null;
             chequeDueDate: Date | null;
             chequeStatus: string | null;
             observation: string | null;
+            branchName: string | null;
+            chequeReceived: Date | null;
             createdAt: Date;
             updatedAt: Date;
         }[];
@@ -169,6 +203,7 @@ export declare class VouchersController {
         id: string;
         currency: import(".prisma/client").$Enums.Currency;
         exchangeRate: number | null;
+        observation: string | null;
         letter: string | null;
         type: import(".prisma/client").$Enums.VoucherType;
         emissionDate: Date;
@@ -182,11 +217,11 @@ export declare class VouchersController {
         conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
         totalAmount: number | null;
         paidAmount: number;
-        observation: string | null;
         available: boolean;
         createdBy: string | null;
         emittedBy: string | null;
         deliveredBy: string | null;
+        cancelledInvoiceNumber: string | null;
         status: import(".prisma/client").$Enums.VoucherStatus;
         financialStatus: string | null;
         logisticStatus: string | null;
@@ -195,34 +230,57 @@ export declare class VouchersController {
         updatedAt: Date;
         updatedBy: string | null;
     }) | null>;
-    registerPayment(createPaymentDto: CreatePaymentDto): Promise<{
+    findMonthlySalesByBranch(payload: {
+        month: number;
+        year: number;
+    }): Promise<{
+        data: {
+            branchName: string;
+            ventas: number;
+            cobranzas: number;
+            cantidadComprobantes: number;
+        }[];
+        meta: {
+            totalSucursales: number;
+            totalGeneral: number;
+        };
+        status?: undefined;
+        message?: undefined;
+    } | {
         status: import("@nestjs/common").HttpStatus;
         message: string;
-        success?: undefined;
         data?: undefined;
-    } | {
-        success: boolean;
-        data: {
-            voucherId: string;
-            id: string;
-            method: import(".prisma/client").$Enums.PaymentMethod;
-            amount: number;
-            currency: import(".prisma/client").$Enums.Currency;
-            exchangeRate: number | null;
-            originalAmount: number | null;
-            receivedAt: Date;
-            receivedBy: string | null;
-            bankId: string | null;
-            cardId: string | null;
-            chequeNumber: string | null;
-            chequeDueDate: Date | null;
-            chequeStatus: string | null;
-            observation: string | null;
-            createdAt: Date;
-            updatedAt: Date;
+        meta?: undefined;
+    }>;
+    findSalesByBranch(payload: {
+        branchId: string;
+    }): Promise<{
+        data: never[];
+        meta: {
+            totalSucursales: number;
+            totalGeneral: number;
+            salesEvolution: never[];
         };
-        message: string;
         status?: undefined;
+        message?: undefined;
+    } | {
+        data: {
+            mes: string;
+            saldoPendiente: number;
+            ingresos: number;
+        }[];
+        meta: {
+            totalSucursales: number;
+            totalGeneral: number;
+            salesEvolution?: undefined;
+        };
+        status?: undefined;
+        message?: undefined;
+    } | {
+        status: import("@nestjs/common").HttpStatus;
+        message: string;
+        data?: undefined;
+        meta?: undefined;
     }>;
     findAllReservedProductsByBranchId(pagination: PaginationDto): Promise<{
         data: ({
@@ -267,6 +325,39 @@ export declare class VouchersController {
         page: number;
         lastPage: number;
     }>;
+    registerPayment(createPaymentDto: CreatePaymentDto): Promise<{
+        status: import("@nestjs/common").HttpStatus;
+        message: string;
+        success?: undefined;
+        data?: undefined;
+    } | {
+        success: boolean;
+        data: {
+            voucherId: string;
+            branchId: string | null;
+            id: string;
+            method: import(".prisma/client").$Enums.PaymentMethod;
+            amount: number;
+            currency: import(".prisma/client").$Enums.Currency;
+            exchangeRate: number | null;
+            originalAmount: number | null;
+            receivedAt: Date;
+            receivedBy: string | null;
+            bankId: string | null;
+            cardId: string | null;
+            chequeNumber: string | null;
+            chequeBank: string | null;
+            chequeDueDate: Date | null;
+            chequeStatus: string | null;
+            observation: string | null;
+            branchName: string | null;
+            chequeReceived: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+        message: string;
+        status?: undefined;
+    }>;
     update({ id, data }: {
         id: string;
         data: UpdateVoucherProductItemDto;
@@ -292,6 +383,41 @@ export declare class VouchersController {
     }>;
     delete(deleteVoucherDto: DeleteVoucherDto): Promise<{
         message: string;
+    }>;
+    deletePayment(payload: any): Promise<{
+        number: string;
+        id: string;
+        currency: import(".prisma/client").$Enums.Currency;
+        exchangeRate: number | null;
+        observation: string | null;
+        letter: string | null;
+        type: import(".prisma/client").$Enums.VoucherType;
+        emissionDate: Date;
+        dueDate: Date | null;
+        emissionBranchId: string | null;
+        emissionBranchName: string | null;
+        destinationBranchId: string | null;
+        destinationBranchName: string | null;
+        contactId: string | null;
+        contactName: string | null;
+        conditionPayment: import(".prisma/client").$Enums.ConditionPayment | null;
+        totalAmount: number | null;
+        paidAmount: number;
+        available: boolean;
+        createdBy: string | null;
+        emittedBy: string | null;
+        deliveredBy: string | null;
+        cancelledInvoiceNumber: string | null;
+        status: import(".prisma/client").$Enums.VoucherStatus;
+        financialStatus: string | null;
+        logisticStatus: string | null;
+        remainingAmount: number;
+        createdAt: Date;
+        updatedAt: Date;
+        updatedBy: string | null;
+    } | {
+        message: string;
+        status: import("@nestjs/common").HttpStatus;
     }>;
     deleteAll(): Promise<string>;
 }

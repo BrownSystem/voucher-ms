@@ -16,6 +16,7 @@ const class_validator_1 = require("class-validator");
 const voucher_product_item_dto_1 = require("./voucher-product-item.dto");
 const initial_payment_dto_1 = require("./initial-payment.dto");
 class CreateVoucherDto {
+    boxId;
     letter;
     type;
     emissionDate;
@@ -37,9 +38,15 @@ class CreateVoucherDto {
     createdBy;
     emittedBy;
     deliveredBy;
+    cancelledInvoiceNumber;
     initialPayment;
 }
 exports.CreateVoucherDto = CreateVoucherDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateVoucherDto.prototype, "boxId", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
@@ -146,6 +153,11 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateVoucherDto.prototype, "deliveredBy", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateVoucherDto.prototype, "cancelledInvoiceNumber", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

@@ -2,6 +2,7 @@ import { ConditionPayment, Currency, VoucherType } from "@prisma/client";
 import { VoucherProductItemDto } from "./voucher-product-item.dto";
 import { CreateInitialPaymentDto } from "./initial-payment.dto";
 export declare class CreateVoucherDto {
+    boxId: string;
     letter?: string;
     type: VoucherType;
     emissionDate: Date;
@@ -23,5 +24,6 @@ export declare class CreateVoucherDto {
     createdBy?: string;
     emittedBy?: string;
     deliveredBy?: string;
+    cancelledInvoiceNumber: string;
     initialPayment?: CreateInitialPaymentDto[];
 }
