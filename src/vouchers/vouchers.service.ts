@@ -1088,24 +1088,31 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
     const headerHtml = headerFields.join("\n");
 
-    const productsHtml = voucher.products
-      .map((p) => {
-        const searchProduct = this.client.send(
-          { cmd: "search_products" },
-          { search: p.productId },
+    const productsRows = await Promise.all(
+      voucher.products.map(async (p) => {
+        const response = await firstValueFrom(
+          this.client.send({ cmd: "search_products" }, { search: p.productId }),
         );
 
+        const product = response.data?.[0];
+
+        if (!product) {
+          return "";
+        }
+
         return `
-        <tr>
-          <td>${searchProduct?.code}</td>
-          <td>${searchProduct?.description}</td>
-          <td>${p.quantity}</td>
-          <td>$${searchProduct?.price.toFixed(2)}</td>
-          <td>$${(searchProduct?.price * p.quantity).toFixed(2)}</td>
-        </tr>
-      `;
-      })
-      .join("");
+      <tr>
+        <td>${product.code}</td>
+        <td>${product.description}</td>
+        <td>${p.quantity}</td>
+        <td>$${product.price?.toFixed(2) ?? "0.00"}</td>
+        <td>$${((product.price ?? 0) * p.quantity).toFixed(2)}</td>
+      </tr>
+    `;
+      }),
+    );
+
+    const productsHtml = productsRows.join("");
 
     const paymentsHtml = voucher.payments
       .map(
