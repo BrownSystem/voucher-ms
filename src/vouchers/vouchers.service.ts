@@ -1090,9 +1090,12 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
     const productsRows = await Promise.all(
       voucher.products.map(async (p) => {
+        console.log("Fetching product for ID:", p.productId);
         const response = await firstValueFrom(
           this.client.send({ cmd: "search_products" }, { search: p.productId }),
         );
+
+        console.log(response);
 
         const product = response.data?.[0];
 
