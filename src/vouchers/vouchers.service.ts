@@ -13,7 +13,7 @@ import { ConditionPayment } from "src/enum";
 import { UpdateVoucherProductItemDto } from "./dto/voucher-product-item.dto";
 import { NATS_SERVICE } from "src/config";
 import { ClientProxy, RpcException } from "@nestjs/microservices";
-import { firstValueFrom } from "rxjs";
+import { firstValueFrom, first } from "rxjs";
 import { GenerateNumberVoucherDto } from "./dto/generate-number.dto";
 import { DeleteVoucherDto } from "./dto/delete-voucher.dto";
 @Injectable()
@@ -28,7 +28,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
   private async updateProductsStock(
     products: any[],
-    action: (p: any) => Promise<any>
+    action: (p: any) => Promise<any>,
   ) {
     for (const product of products) {
       await firstValueFrom(await action(product));
@@ -69,8 +69,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
           voucherNumber,
           cancelledInvoiceNumber,
           paymentId,
-        }
-      )
+        },
+      ),
     );
 
     // Si por algún motivo devuelve objeto en lugar de throw
@@ -100,7 +100,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       subtotal: number;
     }[],
     emissionBranchId: string,
-    destinationBranchId: string
+    destinationBranchId: string,
   ): Promise<void> {
     const tasks: Promise<any>[] = [];
 
@@ -119,9 +119,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                     branchId,
                     productId,
                     stock: quantity,
-                  }
-                )
-              )
+                  },
+                ),
+              ),
             );
           } else {
             // Transferencia entre sucursales
@@ -133,9 +133,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                     branchId,
                     productId,
                     stock: quantity,
-                  }
-                )
-              )
+                  },
+                ),
+              ),
             );
             tasks.push(
               firstValueFrom(
@@ -145,9 +145,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                     branchId: destinationBranchId,
                     productId,
                     stock: quantity,
-                  }
-                )
-              )
+                  },
+                ),
+              ),
             );
           }
           break;
@@ -161,9 +161,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                   branchId: emissionBranchId,
                   productId,
                   stock: quantity,
-                }
-              )
-            )
+                },
+              ),
+            ),
           );
           break;
 
@@ -176,9 +176,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                   branchId: emissionBranchId,
                   productId,
                   stock: quantity,
-                }
-              )
-            )
+                },
+              ),
+            ),
           );
           break;
 
@@ -191,9 +191,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                   branchId: emissionBranchId,
                   productId,
                   stock: quantity,
-                }
-              )
-            )
+                },
+              ),
+            ),
           );
           break;
 
@@ -207,9 +207,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                   branchId,
                   productId,
                   stock: quantity,
-                }
-              )
-            )
+                },
+              ),
+            ),
           );
           break;
       }
@@ -259,8 +259,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       const nextNumber = await firstValueFrom(
         this.client.send(
           { cmd: "generate_number_voucher" },
-          { type, emissionBranchId }
-        )
+          { type, emissionBranchId },
+        ),
       );
 
       // 3. Manejo de stock
@@ -268,13 +268,13 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         createVoucherDto.type,
         enrichedProducts,
         createVoucherDto.emissionBranchId,
-        destinationBranchId
+        destinationBranchId,
       );
 
       // 4. Calcular totales
       const totalAmount = enrichedProducts.reduce(
         (sum, p) => sum + p.subtotal,
-        0
+        0,
       );
 
       const initialPaidTotal = Array.isArray(initialPayment)
@@ -318,7 +318,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               });
               if (!bank) {
                 throw new Error(
-                  `[CREATE_PAYMENT] El banco ${payment.bankId} no existe.`
+                  `[CREATE_PAYMENT] El banco ${payment.bankId} no existe.`,
                 );
               }
             }
@@ -329,7 +329,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               });
               if (!card) {
                 throw new Error(
-                  `[CREATE_PAYMENT] La tarjeta ${payment.cardId} no existe.`
+                  `[CREATE_PAYMENT] La tarjeta ${payment.cardId} no existe.`,
                 );
               }
             }
@@ -507,7 +507,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
       // Paginar manualmente
       const paginatedVouchers = filteredVouchers.slice(
         (offset - 1) * limit,
-        offset * limit
+        offset * limit,
       );
 
       return {
@@ -616,7 +616,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
           return acc;
         },
-        {} as Record<string, any[]>
+        {} as Record<string, any[]>,
       );
 
       // 🧩 Combinamos la información de deuda + lista de vouchers
@@ -908,7 +908,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
         const totalPagado = pagosAnteriores.reduce(
           (sum, p) => sum + (p.amount ?? 0),
-          0
+          0,
         );
 
         const remaining = (voucher.totalAmount ?? 0) - totalPagado;
@@ -1089,32 +1089,37 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     const headerHtml = headerFields.join("\n");
 
     const productsHtml = voucher.products
-      .map(
-        (p) => `
+      .map((p) => {
+        const searchProduct = this.client.send(
+          { cmd: "search_products" },
+          { search: p.productId },
+        );
+
+        return `
         <tr>
-          <td>${p.code}</td>
-          <td>${p.description}</td>
+          <td>${searchProduct?.code}</td>
+          <td>${searchProduct?.description}</td>
           <td>${p.quantity}</td>
-          <td>$${p.price.toFixed(2)}</td>
-          <td>$${(p.price * p.quantity).toFixed(2)}</td>
+          <td>$${searchProduct?.price.toFixed(2)}</td>
+          <td>$${(searchProduct?.price * p.quantity).toFixed(2)}</td>
         </tr>
-      `
-      )
+      `;
+      })
       .join("");
 
     const paymentsHtml = voucher.payments
       .map(
         (p) => `
         <li>${p.method} | $${p.amount.toFixed(2)} | ${formatDate(
-          p.receivedAt
+          p.receivedAt,
         )}</li>
-      `
+      `,
       )
       .join("");
 
     const subtotal = voucher.products.reduce(
       (sum, p) => sum + p.price * p.quantity,
-      0
+      0,
     );
     const total = voucher.totalAmount ?? subtotal;
     const paid = voucher.paidAmount ?? 0;
@@ -1330,7 +1335,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               branchId: voucher.emissionBranchId,
               productId: p.productId,
               stock: p.quantity,
-            }
+            },
           );
         });
         break;
@@ -1344,7 +1349,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                 branchId: voucher.emissionBranchId,
                 productId: p.productId,
                 stock: p.quantity,
-              }
+              },
             );
           });
         } else {
@@ -1355,7 +1360,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                 branchId: voucher.emissionBranchId, // ⚠️ revisar si debe ser product.branchId
                 productId: p.productId,
                 stock: p.quantity,
-              }
+              },
             );
             return this.client.send(
               { cmd: "descrease_branch_product_stock" },
@@ -1363,7 +1368,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
                 branchId: voucher.destinationBranchId,
                 productId: p.productId,
                 stock: p.quantity,
-              }
+              },
             );
           });
         }
@@ -1377,7 +1382,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               branchId: voucher.emissionBranchId,
               productId: p.productId,
               stock: p.quantity,
-            }
+            },
           );
         });
         break;
@@ -1390,7 +1395,7 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               branchId: voucher.emissionBranchId,
               productId: p.productId,
               stock: p.quantity,
-            }
+            },
           );
         });
         break;
