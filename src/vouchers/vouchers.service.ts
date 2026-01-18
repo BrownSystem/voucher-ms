@@ -1088,32 +1088,39 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
 
     const headerHtml = headerFields.join("\n");
 
-    const productsRows = await Promise.all(
-      voucher.products.map(async (p) => {
-        console.log("Fetching product for ID:", p.productId);
-        const response = await firstValueFrom(
-          this.client.send({ cmd: "search_products" }, { search: p.productId }),
-        );
+    const productIds = voucher.products.map((p) => p.productId);
 
-        console.log(response);
+    const products = await firstValueFrom(
+      this.client.send({ cmd: "find_products_by_ids" }, productIds),
+    );
+    const productsMap = new Map(products.map((p) => [p.id, p]));
 
-        const product = response.data?.[0];
+    const productsRows = voucher.products.map((p) => {
+      const product = productsMap.get(p.productId);
 
-        if (!product) {
-          return "";
-        }
-
+      if (!product) {
+        console.warn(`Producto no encontrado: ${p.productId}`);
         return `
       <tr>
-        <td>${product.code}</td>
-        <td>${product.description}</td>
+        <td>—</td>
+        <td>${p.description}</td>
         <td>${p.quantity}</td>
-        <td>$${product.price?.toFixed(2) ?? "0.00"}</td>
-        <td>$${((product.price ?? 0) * p.quantity).toFixed(2)}</td>
+        <td>$${p.price.toFixed(2)}</td>
+        <td>$${p.subtotal.toFixed(2)}</td>
       </tr>
     `;
-      }),
-    );
+      }
+
+      return `
+    <tr>
+      <td>${product.code}</td>
+      <td>${p.description}</td>
+      <td>${p.quantity}</td>
+      <td>$${p.price.toFixed(2)}</td>
+      <td>$${p.subtotal.toFixed(2)}</td>
+    </tr>
+  `;
+    });
 
     const productsHtml = productsRows.join("");
 
