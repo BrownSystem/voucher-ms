@@ -1089,10 +1089,9 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
     const headerHtml = headerFields.join("\n");
 
     const productIds = voucher.products.map((p) => p.productId);
-
-    const products = await firstValueFrom(
+    const products = (await firstValueFrom(
       this.client.send({ cmd: "find_products_by_ids" }, productIds),
-    );
+    )) as Array<{ id: string; code: string }>;
     const productsMap = new Map(products.map((p) => [p.id, p]));
 
     const productsRows = voucher.products.map((p) => {
