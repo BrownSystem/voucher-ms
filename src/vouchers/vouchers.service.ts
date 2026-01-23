@@ -539,6 +539,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         branch,
         dateFrom,
         dateUntil,
+        limit,
+        offset
       } = pagination;
 
       const whereClause: any = {
@@ -584,6 +586,8 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         _sum: { remainingAmount: true },
         _count: { _all: true },
         orderBy: { _sum: { remainingAmount: "desc" } },
+        skip: offset,
+        take: limit
       });
 
       // 🔍 Buscamos los vouchers con include
@@ -599,7 +603,6 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
         },
       });
 
-      // 📦 Agrupamos los vouchers por contacto
       // 📦 Agrupamos los vouchers por contacto
       const vouchersByContact = vouchers.reduce(
         (acc, v) => {

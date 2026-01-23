@@ -350,7 +350,7 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
     }
     async findAllByContact(pagination) {
         try {
-            const { conditionPayment, search, type, emissionBranchId, contactId, branch, dateFrom, dateUntil, } = pagination;
+            const { conditionPayment, search, type, emissionBranchId, contactId, branch, dateFrom, dateUntil, limit, offset } = pagination;
             const whereClause = {
                 available: true,
                 remainingAmount: { gt: 0 },
@@ -394,6 +394,8 @@ let VouchersService = VouchersService_1 = class VouchersService extends client_1
                 _sum: { remainingAmount: true },
                 _count: { _all: true },
                 orderBy: { _sum: { remainingAmount: "desc" } },
+                skip: offset,
+                take: limit
             });
             const vouchers = await this.eVoucher.findMany({
                 where: whereClause,
