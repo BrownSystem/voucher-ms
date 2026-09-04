@@ -1,4 +1,4 @@
-import { IsEnum, IsString } from "class-validator";
+import { IsEnum, IsOptional, IsString } from "class-validator";
 
 enum TypeOfDelete {
   SOFT = "SOFT",
@@ -10,5 +10,6 @@ export class DeleteVoucherDto {
   id: string;
 
   @IsEnum(TypeOfDelete)
-  typeOfDelete: TypeOfDelete;
+  @IsOptional()
+  typeOfDelete?: TypeOfDelete;
 }

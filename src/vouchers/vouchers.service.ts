@@ -1318,49 +1318,92 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
   }
 
   async deleteVoucher(deleteVoucherDto: DeleteVoucherDto) {
-    const { id, typeOfDelete } = deleteVoucherDto;
+    try {
+      const { id, typeOfDelete = "REPLENISH" } = deleteVoucherDto;
 
-    const voucher = await this.eVoucher.findUnique({
-      where: { id },
-      select: {
-        type: true,
-        emissionBranchId: true,
-        destinationBranchId: true,
-        products: true,
-        payments: true,
-        available: true,
-      },
-    });
-
-    if (!voucher) {
-      throw new Error("Voucher not found");
-    }
-
-    if (typeOfDelete === "SOFT") {
-      await this.eVoucher.update({
+      const voucher = await this.eVoucher.findUnique({
         where: { id },
-        data: { available: false },
+        select: {
+          id: true,
+          type: true,
+          emissionBranchId: true,
+          destinationBranchId: true,
+          products: true,
+          payments: true,
+          available: true,
+        },
       });
-      return { message: "Voucher soft deleted successfully" };
-    }
 
-    // Manejo de tipos de voucher
-    switch (voucher.type) {
-      case VoucherType.P:
-        await this.updateProductsStock(voucher.products, async (p) => {
-          return this.client.send(
-            { cmd: "increase_branch_product_stock" },
-            {
-              branchId: voucher.emissionBranchId,
-              productId: p.productId,
-              stock: p.quantity,
-            },
-          );
+      if (!voucher) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `[DELETE_VOUCHER] Comprobante con ID ${id} no encontrado.`,
         });
-        break;
+      }
 
-      case VoucherType.REMITO:
-        if (voucher.emissionBranchId === voucher.destinationBranchId) {
+      if (typeOfDelete === "SOFT") {
+        await this.eVoucher.update({
+          where: { id },
+          data: { available: false },
+        });
+        return {
+          status: HttpStatus.OK,
+          message: "Comprobante desactivado (Soft Delete) correctamente.",
+        };
+      }
+
+      // Manejo de tipos de voucher y reposición de stock
+      switch (voucher.type) {
+        case VoucherType.P:
+          await this.updateProductsStock(voucher.products, async (p) => {
+            return this.client.send(
+              { cmd: "increase_branch_product_stock" },
+              {
+                branchId: voucher.emissionBranchId,
+                productId: p.productId,
+                stock: p.quantity,
+              },
+            );
+          });
+          break;
+
+        case VoucherType.REMITO:
+          if (voucher.emissionBranchId === voucher.destinationBranchId) {
+            await this.updateProductsStock(voucher.products, async (p) => {
+              return this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId: voucher.emissionBranchId,
+                  productId: p.productId,
+                  stock: p.quantity,
+                },
+              );
+            });
+          } else {
+            await this.updateProductsStock(voucher.products, async (p) => {
+              await firstValueFrom(
+                this.client.send(
+                  { cmd: "increase_branch_product_stock" },
+                  {
+                    branchId: voucher.emissionBranchId,
+                    productId: p.productId,
+                    stock: p.quantity,
+                  },
+                ),
+              );
+              return this.client.send(
+                { cmd: "descrease_branch_product_stock" },
+                {
+                  branchId: voucher.destinationBranchId,
+                  productId: p.productId,
+                  stock: p.quantity,
+                },
+              );
+            });
+          }
+          break;
+
+        case VoucherType.FACTURA:
           await this.updateProductsStock(voucher.products, async (p) => {
             return this.client.send(
               { cmd: "descrease_branch_product_stock" },
@@ -1371,62 +1414,61 @@ export class VouchersService extends PrismaClient implements OnModuleInit {
               },
             );
           });
-        } else {
+          break;
+
+        case VoucherType.NOTA_CREDITO_PROVEEDOR:
           await this.updateProductsStock(voucher.products, async (p) => {
-            await this.client.send(
+            return this.client.send(
               { cmd: "increase_branch_product_stock" },
               {
-                branchId: voucher.emissionBranchId, // ⚠️ revisar si debe ser product.branchId
-                productId: p.productId,
-                stock: p.quantity,
-              },
-            );
-            return this.client.send(
-              { cmd: "descrease_branch_product_stock" },
-              {
-                branchId: voucher.destinationBranchId,
+                branchId: voucher.emissionBranchId,
                 productId: p.productId,
                 stock: p.quantity,
               },
             );
           });
-        }
-        break;
+          break;
 
-      case VoucherType.NOTA_CREDITO_PROVEEDOR:
-        await this.updateProductsStock(voucher.products, async (p) => {
-          return this.client.send(
-            { cmd: "increase_branch_product_stock" },
-            {
-              branchId: voucher.emissionBranchId,
-              productId: p.productId,
-              stock: p.quantity,
-            },
-          );
-        });
-        break;
+        case VoucherType.NOTA_CREDITO_CLIENTE:
+          await this.updateProductsStock(voucher.products, async (p) => {
+            return this.client.send(
+              { cmd: "descrease_branch_product_stock" },
+              {
+                branchId: voucher.emissionBranchId,
+                productId: p.productId,
+                stock: p.quantity,
+              },
+            );
+          });
+          break;
 
-      case VoucherType.NOTA_CREDITO_CLIENTE:
-        await this.updateProductsStock(voucher.products, async (p) => {
-          return this.client.send(
-            { cmd: "descrease_branch_product_stock" },
-            {
-              branchId: voucher.emissionBranchId,
-              productId: p.productId,
-              stock: p.quantity,
-            },
-          );
-        });
-        break;
+        default:
+          throw new RpcException({
+            status: HttpStatus.BAD_REQUEST,
+            message: `[DELETE_VOUCHER] Tipo de comprobante no soportado para eliminación: ${voucher.type}`,
+          });
+      }
 
-      default:
-        throw new Error(`Delete not implemented for type ${voucher.type}`);
+      // Eliminar registros dependientes y el comprobante en transacción
+      await this.$transaction([
+        this.eVoucherProduct.deleteMany({ where: { voucherId: id } }),
+        this.ePayment.deleteMany({ where: { voucherId: id } }),
+        this.eVoucher.delete({ where: { id } }),
+      ]);
+
+      return {
+        status: HttpStatus.OK,
+        message: "Comprobante eliminado correctamente.",
+      };
+    } catch (error) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `[DELETE_VOUCHER] Error al eliminar el comprobante: ${error.message}`,
+      });
     }
-
-    // Borrar voucher finalmente
-    await this.eVoucher.delete({ where: { id } });
-
-    return { message: "Voucher deleted successfully" };
   }
 
   async deletePaymentById(id: string) {
